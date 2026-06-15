@@ -6,7 +6,7 @@ export type CategoryId =
   | "exploration"
   | "quests"
   | "character"
-  | "hunting";
+  | "others";
 
 interface CategoryTab {
   id: CategoryId;
@@ -18,7 +18,7 @@ const TABS: CategoryTab[] = [
   { id: "exploration", label: "World Exploration" },
   { id: "quests", label: "Quests" },
   { id: "character", label: "Character Building" },
-  { id: "hunting", label: "Other Services" },
+  { id: "others", label: "Other Services" },
 ];
 
 interface HeaderProps {
