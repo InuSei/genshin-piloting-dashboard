@@ -10,7 +10,14 @@ function formatPHP(amount: number): string {
   })}`;
 }
 
-// Clean Code: Helper functions to intelligently handle both Price types
+function formatUSD(amount: number): string {
+  return `$${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// Clean Code: Helper functions for dual-currency objects
 function getPhp(price: any): number {
   return typeof price === "object" ? price.php : price;
 }
@@ -34,8 +41,8 @@ export function ReceiptPanel({
 }) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [currency, setCurrency] = useState<"PHP" | "USD">("USD"); // Defaulted to USD
 
-  // Intelligently calculate totals using the helpers
   const totalPhp = items.reduce((sum, item) => sum + getPhp(item.price), 0);
   const totalUsd = items.reduce((sum, item) => sum + getUsd(item.price), 0);
 
@@ -52,8 +59,11 @@ export function ReceiptPanel({
           year: "numeric",
           month: "long",
           day: "numeric",
-        })
+        }),
+        currency
       );
+    } catch (err) {
+      console.error("Export failed", err);
     } finally {
       setIsExporting(false);
     }
@@ -61,87 +71,63 @@ export function ReceiptPanel({
 
   return (
     <aside
-      className="flex flex-col h-full bg-white"
-      style={{
-        borderLeft: "1px solid rgba(74, 144, 226, 0.15)",
-        boxShadow: "-4px 0 24px rgba(74, 144, 226, 0.05)",
-      }}
+      className="flex flex-col h-full bg-slate-50"
+      style={{ borderLeft: "1px solid #e2e8f0" }}
     >
       {/* Panel Header */}
-      <div
-        className="px-5 py-4"
-        style={{ borderBottom: "1px solid rgba(74, 144, 226, 0.1)" }}
-      >
+      <div className="px-5 py-4 border-b border-slate-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "#1e3a5f",
-                letterSpacing: "0.02em",
-              }}
-            >
+            <h3 className="font-sans text-[14px] font-bold text-slate-700 tracking-wide">
               Live Receipt
             </h3>
-            <p
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "10px",
-                color: "#6082a6",
-                marginTop: "2px",
-              }}
-            >
+            <p className="font-mono text-[10px] text-slate-500 mt-0.5">
               {items.length === 0 ? "No services selected" : `${items.length} service${items.length !== 1 ? "s" : ""} added`}
             </p>
           </div>
-          {items.length > 0 && (
-            <button
-              onClick={onClearAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 hover:bg-red-50 hover:text-red-500 hover:border-red-100"
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: "11px",
-                color: "#829ab1",
-                background: "rgba(74, 144, 226, 0.04)",
-                border: "1px solid rgba(74, 144, 226, 0.1)",
-              }}
-            >
-              <Trash2 size={11} />
-              Clear
-            </button>
-          )}
+          
+          {/* Controls: Currency Toggle & Clear Button */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-200 rounded-lg p-0.5">
+              <button
+                onClick={() => setCurrency("PHP")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  currency === "PHP" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                PHP
+              </button>
+              <button
+                onClick={() => setCurrency("USD")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  currency === "USD" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                USD
+              </button>
+            </div>
+
+            {items.length > 0 && (
+              <button
+                onClick={onClearAll}
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                title="Clear All"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Client Name */}
         <div className="relative">
-          <User
-            size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#6082a6]"
-          />
+          <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
           <input
             type="text"
             placeholder="Client Name"
             value={clientName}
             onChange={(e) => onClientNameChange(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg transition-all duration-200 placeholder:text-[#a0b8d0]"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: "13px",
-              color: "#1e3a5f",
-              background: "rgba(74, 144, 226, 0.04)",
-              border: "1px solid rgba(74, 144, 226, 0.15)",
-              outline: "none",
-            }}
-            onFocus={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = "#4a90e2";
-              (e.target as HTMLInputElement).style.background = "#fff";
-            }}
-            onBlur={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = "rgba(74, 144, 226, 0.15)";
-              (e.target as HTMLInputElement).style.background = "rgba(74, 144, 226, 0.04)";
-            }}
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg transition-all duration-200 placeholder:text-slate-400 bg-slate-100 border border-slate-200 outline-none focus:border-slate-400 focus:bg-white text-[13px] font-sans text-slate-700"
           />
         </div>
       </div>
@@ -150,42 +136,27 @@ export function ReceiptPanel({
       <div className="flex-1 overflow-y-auto px-5 py-3" ref={receiptRef}>
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(74, 144, 226, 0.08)", color: "#4a90e2" }}
-            >
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-slate-100 text-slate-400">
               <span style={{ fontSize: "20px" }}>🧾</span>
             </div>
-            <p
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: "13px",
-                color: "#6082a6",
-                textAlign: "center",
-              }}
-            >
+            <p className="font-sans text-[13px] text-slate-500 text-center">
               Select services from the left to build your receipt
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
             {groupByCategory(items).map(({ categoryLabel, services }) => (
-              <div key={categoryLabel} className="mb-3">
-                <p
-                  className="mb-1.5"
-                  style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: "9px",
-                    fontWeight: 700,
-                    color: "#829ab1",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.12em",
-                  }}
-                >
+              <div key={categoryLabel} className="mb-4">
+                <p className="mb-2 font-sans text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                   {categoryLabel}
                 </p>
                 {services.map((item, idx) => (
-                  <LineItem key={`${item.id}-${idx}`} item={item} onRemove={() => onRemoveItem(item.id)} />
+                  <LineItem 
+                    key={`${item.id}-${idx}`} 
+                    item={item} 
+                    currency={currency} 
+                    onRemove={() => onRemoveItem(item.id)} 
+                  />
                 ))}
               </div>
             ))}
@@ -194,61 +165,24 @@ export function ReceiptPanel({
       </div>
 
       {/* Total + Export */}
-      <div
-        className="px-5 pb-5 pt-4 bg-[#f8fbfe]"
-        style={{ borderTop: "1px solid rgba(74, 144, 226, 0.1)" }}
-      >
-        <div
-          className="rounded-xl p-4 mb-4 bg-white"
-          style={{
-            border: "1px solid rgba(74, 144, 226, 0.2)",
-            boxShadow: "0 2px 12px rgba(74, 144, 226, 0.04)"
-          }}
-        >
-          <p
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "#829ab1",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              marginBottom: "6px",
-            }}
-          >
+      <div className="px-5 pb-5 pt-4 bg-slate-100 border-t border-slate-200">
+        <div className="rounded-xl p-4 mb-4 bg-slate-50 border border-slate-200 shadow-sm flex flex-col">
+          <p className="font-sans text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
             Grand Total
           </p>
-          <div
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "26px",
-              fontWeight: 700,
-              color: "#4a90e2",
-              lineHeight: 1.1,
-            }}
-          >
-            {formatPHP(totalPhp)}
+          
+          <div className="font-mono text-[26px] font-bold text-slate-700 leading-tight">
+            {currency === "PHP" ? formatPHP(totalPhp) : formatUSD(totalUsd)}
           </div>
-          <div
-            className="flex items-center gap-1.5 mt-1"
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "13px",
-              color: "#6082a6",
-            }}
-          >
-            ≈
-            <span style={{ color: "#1e3a5f", fontWeight: 600 }}>${totalUsd.toFixed(2)}</span>
-            <span style={{ fontSize: "10px" }}>USD</span>
+          
+          <div className="flex items-center gap-1.5 mt-1 font-mono text-[13px] text-slate-500">
+            ≈ <span className="text-slate-700 font-semibold">
+              {currency === "PHP" ? formatUSD(totalUsd) : formatPHP(totalPhp)}
+            </span>
+            <span className="text-[10px]">{currency === "PHP" ? "USD" : "PHP"}</span>
           </div>
-          <p
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: "10px",
-              color: "#829ab1",
-              marginTop: "6px",
-            }}
-          >
+
+          <p className="font-sans text-[10px] text-slate-400 mt-2 border-t border-slate-200 pt-2">
             Rate: 1 USD = ₱{PAYPAL_USD_TO_PHP.toFixed(2)}
           </p>
         </div>
@@ -256,30 +190,23 @@ export function ReceiptPanel({
         <button
           onClick={handleExport}
           disabled={items.length === 0 || isExporting}
-          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl transition-all duration-200 disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl transition-all duration-200 disabled:opacity-50 text-white font-sans text-[14px] font-semibold"
           style={
             items.length > 0
               ? {
-                  background: "linear-gradient(135deg, #4a90e2, #6bb0ff)",
-                  color: "#fff",
-                  boxShadow: "0 4px 14px rgba(74, 144, 226, 0.3)",
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  background: "linear-gradient(135deg, #5b82a8, #7296b8)",
+                  boxShadow: "0 4px 14px rgba(91, 130, 168, 0.25)",
                 }
               : {
-                  background: "rgba(74, 144, 226, 0.05)",
-                  color: "#829ab1",
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: "14px",
-                  fontWeight: 600,
+                  background: "#e2e8f0",
+                  color: "#94a3b8",
                   cursor: "not-allowed",
+                  boxShadow: "none"
                 }
           }
         >
           <Download size={16} />
-          {isExporting ? "Generating…" : "Export Clean Receipt"}
+          {isExporting ? "Generating…" : `Export ${currency} Receipt`}
         </button>
       </div>
     </aside>
@@ -287,54 +214,31 @@ export function ReceiptPanel({
 }
 
 /* ── Line Item ── */
-function LineItem({
-  item,
-  onRemove,
-}: {
-  item: any;
-  onRemove: () => void;
-}) {
+function LineItem({ item, currency, onRemove }: { item: any; currency: "PHP" | "USD"; onRemove: () => void }) {
   const itemPhp = getPhp(item.price);
+  const itemUsd = getUsd(item.price);
   
+  const displayPrice = currency === "PHP" 
+    ? `₱${itemPhp.toLocaleString("en-PH")}` 
+    : `$${itemUsd.toFixed(2)}`;
+
   return (
-    <div className="flex items-start justify-between gap-2 py-2 group border-b border-transparent hover:border-[#eef3f9] transition-colors">
+    <div className="flex items-start justify-between gap-2 py-2 group border-b border-transparent hover:border-slate-200 transition-colors">
       <div className="flex-1 min-w-0">
-        <p
-          className="truncate"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: "12px",
-            fontWeight: 500,
-            color: "#1e3a5f",
-          }}
-        >
+        <p className="truncate font-sans text-[12px] font-semibold text-slate-700">
           {item.name}
         </p>
-        <p
-          style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "10px",
-            color: "#6082a6",
-            marginTop: "2px"
-          }}
-        >
+        <p className="font-mono text-[10px] text-slate-500 mt-0.5">
           {item.detail}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0 mt-0.5">
-        <span
-          style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: "#4a90e2",
-          }}
-        >
-          {`₱${itemPhp.toLocaleString("en-PH")}`}
+        <span className="font-mono text-[12px] font-bold text-[#5b82a8]">
+          {displayPrice}
         </span>
         <button
           onClick={onRemove}
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 w-5 h-5 rounded flex items-center justify-center hover:bg-red-50 text-[#a0b8d0] hover:text-red-500"
+          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 w-5 h-5 rounded flex items-center justify-center hover:bg-slate-200 text-slate-400 hover:text-slate-600"
         >
           <Trash2 size={12} />
         </button>
@@ -356,217 +260,17 @@ function groupByCategory(items: any[]) {
   }));
 }
 
-/* ── Custom Light-Blue Canvas PNG export ── */
-async function exportReceiptAsPNG(
-  clientName: string,
-  items: any[],
-  totalPhp: number,
-  totalUsd: number,
-  dateStr: string
-) {
-  const W = 520;
-  const PADDING = 32;
-  const LINE_H = 24;
-  const SECTION_GAP = 16;
-
-  let h = 60 + PADDING * 2;
-  h += 40; 
-  h += SECTION_GAP * 2;
-  h += items.length * LINE_H + SECTION_GAP;
-  h += 2; 
-  h += SECTION_GAP;
-  h += 52 + SECTION_GAP; 
-  h += 40; 
-  h += PADDING;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = W * 2;
-  canvas.height = h * 2;
-  const ctx = canvas.getContext("2d")!;
-  ctx.scale(2, 2);
-
-  // Background - Light Pastel Blue
-  ctx.fillStyle = "#f4f8fb";
-  ctx.fillRect(0, 0, W, h);
-
-  // Subtle grid lines
-  ctx.strokeStyle = "rgba(74, 144, 226, 0.05)";
-  ctx.lineWidth = 1;
-  for (let y = 0; y < h; y += 20) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
-
-  // Top accent bar - Suino Blue
-  const grad = ctx.createLinearGradient(0, 0, W, 0);
-  grad.addColorStop(0, "#4a90e2");
-  grad.addColorStop(1, "#89b4e5");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, 6);
-
-  let y = PADDING + 6;
-
-  // Logo area
-  ctx.fillStyle = "rgba(74, 144, 226, 0.12)";
-  roundRect(ctx, PADDING, y, 36, 36, 8);
-  ctx.fill();
-  ctx.fillStyle = "#4a90e2";
-  ctx.font = "bold 16px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("✦", PADDING + 18, y + 24);
-
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#1e3a5f";
-  ctx.font = "800 18px 'JetBrains Mono', monospace";
-  ctx.fillText("SUINO", PADDING + 48, y + 16);
-  ctx.fillStyle = "#6082a6";
-  ctx.font = "600 9px sans-serif";
-  ctx.fillText("PILOTING SERVICE", PADDING + 48, y + 30);
-
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#6082a6";
-  ctx.font = "600 10px sans-serif";
-  ctx.fillText("OFFICIAL RECEIPT", W - PADDING, y + 16);
-  ctx.fillStyle = "#829ab1";
-  ctx.font = "500 10px monospace";
-  ctx.fillText(dateStr, W - PADDING, y + 30);
-
-  y += 36 + SECTION_GAP * 2;
-
-  // Divider
-  ctx.strokeStyle = "rgba(74, 144, 226, 0.15)";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(PADDING, y);
-  ctx.lineTo(W - PADDING, y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  y += SECTION_GAP;
-
-  // Client name
-  ctx.fillStyle = "#829ab1";
-  ctx.font = "600 10px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("BILLED TO", PADDING, y);
-  ctx.fillStyle = "#1e3a5f";
-  ctx.font = "700 14px sans-serif";
-  ctx.fillText(clientName, PADDING, y + 18);
-
-  y += 40;
-
-  // Items header
-  ctx.fillStyle = "#829ab1";
-  ctx.font = "700 9px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("DESCRIPTION", PADDING, y);
-  ctx.textAlign = "right";
-  ctx.fillText("AMOUNT", W - PADDING, y);
-
-  y += 14;
-
-  // Divider
-  ctx.strokeStyle = "rgba(74, 144, 226, 0.1)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(PADDING, y);
-  ctx.lineTo(W - PADDING, y);
-  ctx.stroke();
-
-  y += 14;
-
-  // Line items
-  for (const item of items) {
-    const itemPhp = getPhp(item.price);
-
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#1e3a5f";
-    ctx.font = "600 12px sans-serif";
-    const shortName = item.name.length > 40 ? item.name.slice(0, 40) + "…" : item.name;
-    ctx.fillText(shortName, PADDING, y);
-
-    ctx.fillStyle = "#6082a6";
-    ctx.font = "500 10px monospace";
-    ctx.fillText(item.detail, PADDING, y + 14);
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#4a90e2";
-    ctx.font = "700 13px 'JetBrains Mono', monospace";
-    ctx.fillText(`₱${itemPhp.toLocaleString("en-PH")}`, W - PADDING, y + 6);
-
-    y += LINE_H;
-  }
-
-  y += SECTION_GAP;
-
-  // Dashed divider
-  ctx.strokeStyle = "rgba(74, 144, 226, 0.15)";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.moveTo(PADDING, y);
-  ctx.lineTo(W - PADDING, y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  y += SECTION_GAP + 8;
-
-  // Grand total box
-  ctx.fillStyle = "#ffffff";
-  roundRect(ctx, PADDING, y, W - PADDING * 2, 56, 12);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(74, 144, 226, 0.2)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, PADDING, y, W - PADDING * 2, 56, 12);
-  ctx.stroke();
-
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#829ab1";
-  ctx.font = "700 10px sans-serif";
-  ctx.fillText("GRAND TOTAL", PADDING + 16, y + 20);
-
-  ctx.fillStyle = "#6082a6";
-  ctx.font = "500 11px monospace";
-  ctx.fillText(`≈ $${totalUsd.toFixed(2)} USD`, PADDING + 16, y + 40);
-
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#4a90e2";
-  ctx.font = "800 24px 'JetBrains Mono', monospace";
-  ctx.fillText(
-    `₱${totalPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    W - PADDING - 16,
-    y + 34
-  );
-
-  y += 56 + SECTION_GAP * 2;
-
-  // Footer
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#6082a6";
-  ctx.font = "500 10px sans-serif";
-  ctx.fillText("Thank you for choosing SUINO Piloting Service", W / 2, y);
-  ctx.fillStyle = "#829ab1";
-  ctx.font = "500 9px sans-serif";
-  ctx.fillText("suino.ph · @SuinoPilotingService", W / 2, y + 16);
-
-  // Download
-  const link = document.createElement("a");
-  link.download = `SUINO_Receipt_${clientName.replace(/\s+/g, "_")}_${Date.now()}.png`;
-  link.href = canvas.toDataURL("image/png");
-  link.click();
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -578,4 +282,208 @@ function roundRect(
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
+}
+
+/* ── Custom "Aesthetic Floating Card" Canvas PNG Export ── */
+async function exportReceiptAsPNG(
+  clientName: string,
+  items: any[],
+  totalPhp: number,
+  totalUsd: number,
+  dateStr: string,
+  currency: "PHP" | "USD"
+) {
+  const bannerImg = await loadImage("/hero-banner.png").catch(() => null);
+
+  const CANVAS_W = 600;
+  const CARD_W = 520;
+  const CARD_X = (CANVAS_W - CARD_W) / 2;
+  const CARD_Y = 40;
+  
+  const BANNER_H = bannerImg ? (bannerImg.height / bannerImg.width) * CARD_W : 0;
+  
+  const PADDING = 32;
+  const LINE_H = 26;
+  const SECTION_GAP = 20;
+
+  let cardH = BANNER_H;
+  cardH += PADDING;
+  cardH += 40; 
+  cardH += SECTION_GAP;
+  cardH += items.length * LINE_H + SECTION_GAP; 
+  cardH += SECTION_GAP;
+  cardH += 70; 
+  cardH += 40; 
+  cardH += PADDING;
+
+  const CANVAS_H = cardH + (CARD_Y * 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_W * 2;
+  canvas.height = CANVAS_H * 2;
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(2, 2);
+
+  // Background
+  ctx.fillStyle = "#e2e8f0";
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Floating Card
+  ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 12;
+  ctx.fillStyle = "#f8fafc";
+  roundRect(ctx, CARD_X, CARD_Y, CARD_W, cardH, 16);
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+
+  let currentY = CARD_Y;
+
+  // Banner
+  if (bannerImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(CARD_X + 16, CARD_Y);
+    ctx.lineTo(CARD_X + CARD_W - 16, CARD_Y);
+    ctx.quadraticCurveTo(CARD_X + CARD_W, CARD_Y, CARD_X + CARD_W, CARD_Y + 16);
+    ctx.lineTo(CARD_X + CARD_W, CARD_Y + BANNER_H);
+    ctx.lineTo(CARD_X, CARD_Y + BANNER_H);
+    ctx.lineTo(CARD_X, CARD_Y + 16);
+    ctx.quadraticCurveTo(CARD_X, CARD_Y, CARD_X + 16, CARD_Y);
+    ctx.closePath();
+    ctx.clip();
+
+    ctx.drawImage(bannerImg, CARD_X, CARD_Y, CARD_W, BANNER_H);
+    ctx.restore();
+
+    ctx.fillStyle = "rgba(15, 23, 42, 0.05)";
+    ctx.fillRect(CARD_X, CARD_Y + BANNER_H, CARD_W, 2);
+    
+    currentY += BANNER_H + PADDING;
+  } else {
+    currentY += PADDING * 2;
+  }
+
+  // Header Details
+  const leftAlign = CARD_X + PADDING;
+  const rightAlign = CARD_X + CARD_W - PADDING;
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 10px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("BILLED TO", leftAlign, currentY);
+  
+  ctx.textAlign = "right";
+  ctx.fillText("OFFICIAL RECEIPT", rightAlign, currentY);
+
+  ctx.fillStyle = "#334155";
+  ctx.font = "700 16px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(clientName, leftAlign, currentY + 20);
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 12px monospace";
+  ctx.textAlign = "right";
+  ctx.fillText(dateStr, rightAlign, currentY + 20);
+
+  currentY += 40 + SECTION_GAP;
+
+  // Items Header
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "700 9px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("DESCRIPTION", leftAlign, currentY);
+  ctx.textAlign = "right";
+  ctx.fillText("AMOUNT", rightAlign, currentY);
+
+  currentY += 12;
+
+  // Divider
+  ctx.strokeStyle = "#cbd5e1";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(leftAlign, currentY);
+  ctx.lineTo(rightAlign, currentY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  currentY += 20;
+
+  // Line Items Output
+  for (const item of items) {
+    const itemPhp = getPhp(item.price);
+    const itemUsd = getUsd(item.price);
+    
+    const displayPrice = currency === "PHP" 
+      ? `₱${itemPhp.toLocaleString("en-PH")}` 
+      : `$${itemUsd.toFixed(2)}`;
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#334155";
+    ctx.font = "600 13px sans-serif";
+    const shortName = item.name.length > 40 ? item.name.slice(0, 40) + "…" : item.name;
+    ctx.fillText(shortName, leftAlign, currentY);
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = "500 10px monospace";
+    ctx.fillText(item.detail, leftAlign, currentY + 16);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#5b82a8";
+    ctx.font = "700 14px 'JetBrains Mono', monospace";
+    ctx.fillText(displayPrice, rightAlign, currentY + 8);
+
+    currentY += LINE_H;
+  }
+
+  currentY += SECTION_GAP;
+
+  // Grand Total Box Output
+  ctx.fillStyle = "#f1f5f9"; 
+  roundRect(ctx, leftAlign, currentY, CARD_W - (PADDING * 2), 64, 12);
+  ctx.fill();
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 1;
+  roundRect(ctx, leftAlign, currentY, CARD_W - (PADDING * 2), 64, 12);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#64748b";
+  ctx.font = "700 10px sans-serif";
+  ctx.fillText("GRAND TOTAL", leftAlign + 16, currentY + 24);
+
+  const bigTotal = currency === "PHP"
+    ? `₱${totalPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    
+  const smallTotal = currency === "PHP"
+    ? `≈ $${totalUsd.toFixed(2)} USD`
+    : `≈ ₱${totalPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 12px monospace";
+  ctx.fillText(smallTotal, leftAlign + 16, currentY + 46);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#334155"; 
+  ctx.font = "800 26px 'JetBrains Mono', monospace";
+  ctx.fillText(bigTotal, rightAlign - 16, currentY + 40);
+
+  currentY += 64 + SECTION_GAP + 10;
+
+  // Footer
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 11px sans-serif";
+  ctx.fillText("Thank you for choosing SUINO Piloting Service", CARD_X + (CARD_W / 2), currentY);
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "500 10px sans-serif";
+  ctx.fillText("suino.ph · @SuinoPilotingService", CARD_X + (CARD_W / 2), currentY + 16);
+
+  // Download Trigger
+  const link = document.createElement("a");
+  link.download = `SUINO_Receipt_${clientName.replace(/\s+/g, "_")}_${Date.now()}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
 }

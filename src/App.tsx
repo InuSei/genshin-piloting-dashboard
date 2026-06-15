@@ -57,10 +57,11 @@ export default function App() {
   const cartCount = receiptItems.length;
 
   return (
-    <div className="flex flex-col size-full overflow-hidden bg-background min-h-screen">
+    // 1. STRICT h-screen forces the app to fit exactly inside your monitor window
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-50">
       
-      {/* Header */}
-      <div className="relative z-10">
+      {/* 2. Header - shrink-0 prevents it from getting squished */}
+      <div className="shrink-0 relative z-10">
         <Header
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
@@ -68,20 +69,19 @@ export default function App() {
         />
       </div>
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden relative z-10">
+      {/* 3. Main layout - min-h-0 is the magic flexbox property that forces internal scrolling */}
+      <div className="flex flex-1 min-h-0 relative z-10">
         
-        {/* Left: Service Area (70%) */}
+        {/* Left: Service Area now scrolls independently of the rest of the page */}
         <main className="flex-1 overflow-y-auto px-6 py-6" style={{ minWidth: 0 }}>
           
-          {/* YOUR BRAND BANNER */}
-          <div className="w-full h-35 md:h-50 rounded-2xl overflow-hidden mb-6 border border-[rgba(74,144,226,0.15)] shadow-[0_4px_20px_rgba(74,144,226,0.05)] bg-[#f4f8fb]">
-          <img 
-            src="/hero-banner.png" 
-            alt="Suino Piloting Service Banner" 
-            className="w-full h-full object-cover object-center" 
-          />
-        </div>
+          <div className="w-full h-70 md:h-48 rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm bg-slate-100">
+            <img 
+              src="/hero-banner.png" 
+              alt="Suino Piloting Service Banner" 
+              className="w-full h-full object-cover object-center opacity-95" 
+            />
+          </div>
 
           {activeCategory === "exploration" ? (
             <ExplorationPanel
@@ -98,8 +98,8 @@ export default function App() {
           )}
         </main>
 
-        {/* Right: Receipt Panel (320px fixed) */}
-        <div className="overflow-hidden flex-shrink-0 border-l border-border" style={{ width: "320px" }}>
+        {/* Right: Receipt Panel is strictly locked to the right side and full height */}
+        <div className="w-[320px] shrink-0 border-l border-slate-200 bg-white h-full">
           <ReceiptPanel
             clientName={clientName}
             onClientNameChange={setClientName}

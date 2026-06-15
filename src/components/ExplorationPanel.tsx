@@ -15,7 +15,7 @@ interface ExplorationPanelProps {
 }
 
 export function ExplorationPanel({ selections, onChange }: ExplorationPanelProps) {
-  const [openRegions, setOpenRegions] = useState<Set<string>>(() => new Set(["liyue"]));
+  const [openRegions, setOpenRegions] = useState<Set<string>>(() => new Set());
 
   const toggleRegion = useCallback((id: string) => {
     setOpenRegions((prev) => {
