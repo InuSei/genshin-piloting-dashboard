@@ -303,8 +303,10 @@ async function exportReceiptAsPNG(
   const BANNER_H = bannerImg ? (bannerImg.height / bannerImg.width) * CARD_W : 0;
   
   const PADDING = 32;
-  const LINE_H = 26;
-  const SECTION_GAP = 20;
+  
+  // Clean Code: Increased line height to 38px to give multi-line items proper breathing room
+  const LINE_H = 38; 
+  const SECTION_GAP = 24;
 
   let cardH = BANNER_H;
   cardH += PADDING;
@@ -408,7 +410,7 @@ async function exportReceiptAsPNG(
   ctx.stroke();
   ctx.setLineDash([]);
 
-  currentY += 20;
+  currentY += 24; // Added extra padding below the dashed line
 
   // Line Items Output
   for (const item of items) {
@@ -425,14 +427,15 @@ async function exportReceiptAsPNG(
     const shortName = item.name.length > 40 ? item.name.slice(0, 40) + "…" : item.name;
     ctx.fillText(shortName, leftAlign, currentY);
 
-    ctx.fillStyle = "#64748b";
+    ctx.fillStyle = "#94a3b8"; // Lightened the subtitle color to differentiate it further
     ctx.font = "500 10px monospace";
     ctx.fillText(item.detail, leftAlign, currentY + 16);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#5b82a8";
     ctx.font = "700 14px 'JetBrains Mono', monospace";
-    ctx.fillText(displayPrice, rightAlign, currentY + 8);
+    // Vertically centered the price slightly between the title and subtitle
+    ctx.fillText(displayPrice, rightAlign, currentY + 8); 
 
     currentY += LINE_H;
   }

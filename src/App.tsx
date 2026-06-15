@@ -57,11 +57,11 @@ export default function App() {
   const cartCount = receiptItems.length;
 
   return (
-    // 1. STRICT h-screen forces the app to fit exactly inside your monitor window
-    <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-50">
+    // Clean Code: Mobile gets vertical scrolling (min-h-screen), Desktop gets locked view (lg:h-screen)
+    <div className="flex flex-col w-full bg-slate-50 min-h-screen lg:h-screen lg:overflow-hidden">
       
-      {/* 2. Header - shrink-0 prevents it from getting squished */}
-      <div className="shrink-0 relative z-10">
+      {/* Header - Sticky on mobile so it doesn't disappear when scrolling down */}
+      <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
@@ -69,17 +69,17 @@ export default function App() {
         />
       </div>
 
-      {/* 3. Main layout - min-h-0 is the magic flexbox property that forces internal scrolling */}
-      <div className="flex flex-1 min-h-0 relative z-10">
+      {/* Main layout - Stacks vertically on phones, side-by-side on monitors */}
+      <div className="flex flex-col lg:flex-row flex-1 relative z-10 lg:min-h-0">
         
-        {/* Left: Service Area now scrolls independently of the rest of the page */}
-        <main className="flex-1 overflow-y-auto px-6 py-6" style={{ minWidth: 0 }}>
+        {/* Left: Service Area */}
+        <main className="flex-1 lg:overflow-y-auto px-4 lg:px-6 py-6" style={{ minWidth: 0 }}>
           
-          <div className="w-full h-70 md:h-48 rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm bg-slate-100">
+          <div className="w-full rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm bg-slate-100 flex">
             <img 
               src="/hero-banner.png" 
               alt="Suino Piloting Service Banner" 
-              className="w-full h-full object-cover object-center opacity-95" 
+              className="w-full h-auto block opacity-95" 
             />
           </div>
 
@@ -98,8 +98,8 @@ export default function App() {
           )}
         </main>
 
-        {/* Right: Receipt Panel is strictly locked to the right side and full height */}
-        <div className="w-[320px] shrink-0 border-l border-slate-200 bg-white h-full">
+        {/* Right: Receipt Panel - Drops to the bottom on mobile, locks right on desktop */}
+        <div className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col">
           <ReceiptPanel
             clientName={clientName}
             onClientNameChange={setClientName}

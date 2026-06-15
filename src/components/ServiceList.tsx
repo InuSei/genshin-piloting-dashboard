@@ -349,7 +349,7 @@ function QuantityService({
   );
 }
 
-/* ── Nested List Service (For Archon Quests) ── */
+/* ── Nested List Service (For Archon Quests & Maintenance) ── */
 function NestedListService({
   service,
   selections,
@@ -382,6 +382,9 @@ function NestedListService({
             <div className="flex flex-col gap-2.5 pl-4 border-l-[3px] border-[#eef3f9] py-1">
               {group.items.map((item: any) => {
                 const isChecked = (selections[item.id] ?? 0) > 0;
+                
+                // Clean Code: Intelligently handle dual-currency objects or standard numbers
+                const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
                 
                 return (
                   <div 
@@ -427,7 +430,7 @@ function NestedListService({
                     <span className={`text-[14px] font-mono font-bold transition-colors ${
                       isChecked ? "text-[#4a90e2]" : "text-[#a0b8d0]"
                     }`}>
-                      ₱{item.price}
+                      ₱{itemPhp.toLocaleString("en-PH")}
                     </span>
                   </div>
                 );
