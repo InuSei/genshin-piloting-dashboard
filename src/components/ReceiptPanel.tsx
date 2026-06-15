@@ -479,10 +479,10 @@ async function exportReceiptAsPNG(
   ctx.textAlign = "center";
   ctx.fillStyle = "#64748b";
   ctx.font = "500 11px sans-serif";
-  ctx.fillText("Thank you for choosing SUINO Piloting Service", CARD_X + (CARD_W / 2), currentY);
+  ctx.fillText("Thank you for choosing Suino Piloting Service", CARD_X + (CARD_W / 2), currentY);
   ctx.fillStyle = "#94a3b8";
   ctx.font = "500 10px sans-serif";
-  ctx.fillText("suino.ph · @SuinoPilotingService", CARD_X + (CARD_W / 2), currentY + 16);
+  ctx.fillText("@SuinoPlt · @SuinoPilotingService", CARD_X + (CARD_W / 2), currentY + 16);
 
   // Download Trigger
   const link = document.createElement("a");
