@@ -10,6 +10,7 @@ export interface NestedListItem {
   id: string;
   name: string;
   price: PriceData;
+  isQuantity?: boolean;
 }
 
 export interface NestedListGroup {
@@ -30,7 +31,8 @@ export interface Service {
     items: { 
       id: string; 
       name: string; 
-      price: PriceValue; // <--- Changed from 'number'
+      price: PriceValue; 
+      isQuantity?: boolean;
     }[];
   }[];
 }
@@ -291,22 +293,22 @@ export const CATEGORIES: Category[] = [
           {
             name: "Oculi Hunting",
             items: [
-              { id: "hunt_oculi_anemo", name: "Anemoculi", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_oculi_geo", name: "Geoculi", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_oculi_electro", name: "Electroculi", price: { php: 3, usd: 0.05 } },
-              { id: "hunt_oculi_dendro", name: "Dendroculi", price: { php: 3, usd: 0.05 } },
-              { id: "hunt_oculi_hydro", name: "Hydroculi", price: { php: 3, usd: 0.05 } },
-              { id: "hunt_oculi_pyro", name: "Pyroculi", price: { php: 3, usd: 0.05 } },
+              { id: "hunt_oculi_anemo", name: "Anemoculi", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_oculi_geo", name: "Geoculi", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_oculi_electro", name: "Electroculi", price: { php: 3, usd: 0.05 }, isQuantity: true },
+              { id: "hunt_oculi_dendro", name: "Dendroculi", price: { php: 3, usd: 0.05 }, isQuantity: true },
+              { id: "hunt_oculi_hydro", name: "Hydroculi", price: { php: 3, usd: 0.05 }, isQuantity: true },
+              { id: "hunt_oculi_pyro", name: "Pyroculi", price: { php: 3, usd: 0.05 }, isQuantity: true },
             ]
           },
           {
             name: "Offerings Hunting",
             items: [
-              { id: "hunt_offering_crimson", name: "Crimson Agate", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_offering_lamenspar", name: "Lamenspar", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_offering_purify", name: "Purify Plum", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_offering_spirit", name: "Spirit Corps", price: { php: 2, usd: 0.04 } },
-              { id: "hunt_offering_lunoculi", name: "Lunoculi", price: { php: 2, usd: 0.04 } },
+              { id: "hunt_offering_crimson", name: "Crimson Agate", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_offering_lamenspar", name: "Lamenspar", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_offering_purify", name: "Purify Plum", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_offering_spirit", name: "Spirit Corps", price: { php: 2, usd: 0.04 }, isQuantity: true },
+              { id: "hunt_offering_lunoculi", name: "Lunoculi", price: { php: 2, usd: 0.04 }, isQuantity: true },
             ]
           },
           {
@@ -342,7 +344,7 @@ export interface ReceiptLineItem {
   categoryLabel: string;
   name: string;
   detail: string;
-  price: PriceValue; // <--- Changed from 'number'
+  price: PriceValue; 
 }
 
 export function buildReceiptItems(
@@ -353,18 +355,27 @@ export function buildReceiptItems(
   for (const category of CATEGORIES) {
     for (const service of category.services) {
       
-      // Handle the new Nested List Logic
+      // Clean Code: Handle hybrid nested-list rendering logic
       if (service.type === "nested-list" && service.groups) {
         for (const group of service.groups) {
           for (const item of group.items) {
             const val = selections[item.id] ?? 0;
             if (val > 0) {
+              const basePhp = typeof item.price === "object" ? item.price.php : item.price;
+              const baseUsd = typeof item.price === "object" ? item.price.usd : item.price / 60.75;
+
+              const finalPrice = item.isQuantity 
+                ? { php: basePhp * val, usd: baseUsd * val }
+                : item.price;
+
+              const displayName = item.isQuantity ? `${item.name} (x${val})` : item.name;
+
               items.push({
                 id: item.id,
                 categoryLabel: `${category.label} — ${service.name}`,
-                name: item.name,
+                name: displayName,
                 detail: group.name,
-                price: item.price,
+                price: finalPrice,
               });
             }
           }

@@ -110,6 +110,7 @@ export function ServiceList({
                   service={service}
                   selections={selections}
                   onToggle={onToggleCheckbox}
+                  onQuantityChange={onQuantityChange} // Clean Code: Passed logic directly into component
                 />
               )}
             </div>
@@ -349,15 +350,17 @@ function QuantityService({
   );
 }
 
-/* ── Nested List Service (For Archon Quests & Maintenance) ── */
+/* ── Nested List Service (Hybrid: Checkbox & Input Field) ── */
 function NestedListService({
   service,
   selections,
   onToggle,
+  onQuantityChange,
 }: {
   service: any;
   selections: Record<string, number>;
   onToggle: (id: string) => void;
+  onQuantityChange: (id: string, value: number) => void;
 }) {
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -381,45 +384,83 @@ function NestedListService({
             
             <div className="flex flex-col gap-2.5 pl-4 border-l-[3px] border-[#eef3f9] py-1">
               {group.items.map((item: any) => {
-                const isChecked = (selections[item.id] ?? 0) > 0;
-                
-                // Clean Code: Intelligently handle dual-currency objects or standard numbers
+                const val = selections[item.id] ?? 0;
+                const isChecked = val > 0;
                 const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
                 
                 return (
                   <div 
                     key={item.id} 
-                    className="flex items-center gap-4 group/item cursor-pointer"
-                    onClick={() => onToggle(item.id)}
+                    className={`flex items-center gap-4 ${!item.isQuantity ? "cursor-pointer group/item" : ""}`}
+                    onClick={() => !item.isQuantity && onToggle(item.id)}
                   >
-                    <div
-                      className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-300"
-                      style={
-                        isChecked
-                          ? {
-                              background: "linear-gradient(135deg, #4a90e2, #6bb0ff)",
-                              border: "none",
-                              boxShadow: "0 3px 8px rgba(74, 144, 226, 0.25)",
-                              transform: "scale(1.05)",
+                    
+                    {/* Render Input Field OR Checkbox based on isQuantity flag */}
+                    {item.isQuantity ? (
+                      <div
+                        className="flex items-center rounded-lg overflow-hidden bg-white shrink-0"
+                        style={{
+                          width: "64px",
+                          border: isChecked ? "1px solid #4a90e2" : "1px solid #c5d8eb",
+                          boxShadow: isChecked ? "0 0 0 2px rgba(74,144,226,0.1)" : "none",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={val === 0 ? "" : val}
+                          placeholder="0"
+                          onClick={(e) => e.stopPropagation()} // Prevent row click interference
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              onQuantityChange(item.id, 0);
+                              return;
                             }
-                          : {
-                              background: "#f4f8fb",
-                              border: "2px solid #c5d8eb",
-                            }
-                      }
-                    >
-                      {isChecked && (
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path
-                            d="M1 4L3.5 6.5L9 1"
-                            stroke="white"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      )}
-                    </div>
+                            const parsed = Math.max(0, parseInt(raw, 10) || 0);
+                            onQuantityChange(item.id, parsed);
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          className="w-full text-center py-1.5"
+                          style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            color: isChecked ? "#1e3a5f" : "#829ab1",
+                            background: "transparent",
+                            border: "none",
+                            outline: "none",
+                            MozAppearance: "textfield",
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-300"
+                        style={
+                          isChecked
+                            ? {
+                                background: "linear-gradient(135deg, #4a90e2, #6bb0ff)",
+                                border: "none",
+                                boxShadow: "0 3px 8px rgba(74, 144, 226, 0.25)",
+                                transform: "scale(1.05)",
+                              }
+                            : {
+                                background: "#f4f8fb",
+                                border: "2px solid #c5d8eb",
+                              }
+                        }
+                      >
+                        {isChecked && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+
                     <span
                       className={`flex-1 text-[14px] transition-colors ${
                         isChecked ? "text-[#1e3a5f] font-bold" : "text-[#6082a6] font-medium group-hover/item:text-[#4a5a6a]"
@@ -430,7 +471,7 @@ function NestedListService({
                     <span className={`text-[14px] font-mono font-bold transition-colors ${
                       isChecked ? "text-[#4a90e2]" : "text-[#a0b8d0]"
                     }`}>
-                      ₱{itemPhp.toLocaleString("en-PH")}
+                      ₱{(itemPhp * (item.isQuantity && isChecked ? val : 1)).toLocaleString("en-PH")}
                     </span>
                   </div>
                 );
