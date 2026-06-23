@@ -9,17 +9,19 @@ import {
   type ServiceSelection,
 } from "./data/services";
 import {
+  EXPLORATION_REGIONS,
   buildExplorationReceiptItems,
   type ExplorationSelections,
+  UNSELECTED,
 } from "./data/explorationRegions";
 
 export default function App() {
-  /* MARKER-MAKE-KIT-INVOKED */
-
   const [activeCategory, setActiveCategory] = useState<CategoryId>("maintenance");
   const [selections, setSelections] = useState<ServiceSelection>({});
   const [explorationSelections, setExplorationSelections] = useState<ExplorationSelections>({});
   const [clientName, setClientName] = useState("");
+  const [isFirstTimeClient, setIsFirstTimeClient] = useState<boolean>(false);
+  const [noCompassRegions, setNoCompassRegions] = useState<Record<string, boolean>>({});
 
   const handleToggleCheckbox = useCallback((serviceId: string) => {
     setSelections((prev) => ({
@@ -36,15 +38,26 @@ export default function App() {
     setExplorationSelections((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const handleToggleCompass = useCallback((regionId: string) => {
+    setNoCompassRegions((prev) => ({
+      ...prev,
+      [regionId]: !prev[regionId],
+    }));
+  }, []);
+
   const handleClearAll = useCallback(() => {
     setSelections({});
     setExplorationSelections({});
+    setNoCompassRegions({}); 
+    setIsFirstTimeClient(false);
   }, []);
 
   const handleRemoveItem = useCallback((id: string) => {
-    // Exploration keys contain "__"
     if (id.includes("__")) {
       setExplorationSelections((prev) => ({ ...prev, [id]: 0 }));
+    } else if (id.startsWith("compass_")) {
+      const regionId = id.replace("compass_", "");
+      setNoCompassRegions((prev) => ({ ...prev, [regionId]: false }));
     } else {
       setSelections((prev) => ({ ...prev, [id]: 0 }));
     }
@@ -53,14 +66,30 @@ export default function App() {
   const currentCategory = CATEGORIES.find((c) => c.id === activeCategory)!;
   const serviceReceiptItems = buildReceiptItems(selections);
   const explorationReceiptItems = buildExplorationReceiptItems(explorationSelections);
-  const receiptItems = [...serviceReceiptItems, ...explorationReceiptItems];
+
+  const activeExplorationRegionIds = new Set<string>();
+  for (const [key, val] of Object.entries(explorationSelections)) {
+    if (val !== UNSELECTED && val > 0) { 
+      const regionId = key.split("__")[0];
+      activeExplorationRegionIds.add(regionId);
+    }
+  }
+
+  const compassSurchargeItems = EXPLORATION_REGIONS
+    .filter((r) => noCompassRegions[r.id] && activeExplorationRegionIds.has(r.id))
+    .map((r) => ({
+      id: `compass_${r.id}`,
+      categoryLabel: `World Exploration`,
+      name: `${r.name} (No Compass)`,
+      detail: "Surcharge",
+      price: { php: 60, usd: 1.60 },
+    }));
+
+  const receiptItems = [...serviceReceiptItems, ...explorationReceiptItems, ...compassSurchargeItems];
   const cartCount = receiptItems.length;
 
   return (
-    // Clean Code: Mobile gets vertical scrolling (min-h-screen), Desktop gets locked view (lg:h-screen)
     <div className="flex flex-col w-full bg-slate-50 min-h-screen lg:h-screen lg:overflow-hidden">
-      
-      {/* Header - Sticky on mobile so it doesn't disappear when scrolling down */}
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
           activeCategory={activeCategory}
@@ -69,12 +98,8 @@ export default function App() {
         />
       </div>
 
-      {/* Main layout - Stacks vertically on phones, side-by-side on monitors */}
       <div className="flex flex-col lg:flex-row flex-1 relative z-10 lg:min-h-0">
-        
-        {/* Left: Service Area */}
         <main className="flex-1 lg:overflow-y-auto px-4 lg:px-6 py-6" style={{ minWidth: 0 }}>
-          
           <div className="w-full rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm bg-slate-100 flex">
             <img 
               src="/hero-banner.png" 
@@ -87,6 +112,8 @@ export default function App() {
             <ExplorationPanel
               selections={explorationSelections}
               onChange={handleExplorationChange}
+              noCompassRegions={noCompassRegions}
+              onToggleCompass={handleToggleCompass}
             />
           ) : (
             <ServiceList
@@ -98,7 +125,6 @@ export default function App() {
           )}
         </main>
 
-        {/* Right: Receipt Panel - Drops to the bottom on mobile, locks right on desktop */}
         <div className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col">
           <ReceiptPanel
             clientName={clientName}
@@ -106,6 +132,11 @@ export default function App() {
             items={receiptItems}
             onClearAll={handleClearAll}
             onRemoveItem={handleRemoveItem}
+            isFirstTimeClient={isFirstTimeClient}
+            onToggleFirstTimeClient={setIsFirstTimeClient}
+            /* NEW: Pass raw exploration data down for the canvas export */
+            explorationSelections={explorationSelections}
+            noCompassRegions={noCompassRegions}
           />
         </div>
       </div>
