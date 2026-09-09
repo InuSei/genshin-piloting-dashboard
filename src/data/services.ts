@@ -1,5 +1,7 @@
+import { loadOverrides, type PriceOverrides } from "./priceStorage";
 export type ServiceType = "checkbox" | "quantity" | "nested-list";
 export type PriceValue = number | { php: number; usd: number };
+
 
 export interface PriceData {
   php: number;
@@ -405,3 +407,47 @@ export function buildReceiptItems(
   }
   return items;
 }
+
+const DEFAULT_CATEGORIES: Category[] = JSON.parse(JSON.stringify(CATEGORIES));
+
+export function applyServicePriceOverrides(overrides: PriceOverrides): void {
+  for (const category of CATEGORIES) {
+    for (const service of category.services) {
+      if (service.type === "nested-list" && service.groups) {
+        for (const group of service.groups) {
+          for (const item of group.items) {
+            const override = overrides.nestedItems[item.id];
+            if (override) item.price = { php: override.php, usd: override.usd };
+          }
+        }
+      } else {
+        const override = overrides.serviceBase[service.id];
+        if (override !== undefined) service.basePrice = override;
+      }
+    }
+  }
+}
+
+export function restoreServiceDefaults(): void {
+  const defaultsById = new Map(DEFAULT_CATEGORIES.map((c) => [c.id, c]));
+  for (const category of CATEGORIES) {
+    const defaultCategory = defaultsById.get(category.id);
+    if (!defaultCategory) continue;
+    for (const service of category.services) {
+      const defaultService = defaultCategory.services.find((s) => s.id === service.id);
+      if (!defaultService) continue;
+      if (service.type === "nested-list" && service.groups && defaultService.groups) {
+        for (let g = 0; g < service.groups.length; g++) {
+          for (let it = 0; it < service.groups[g].items.length; it++) {
+            const defaultItem = defaultService.groups[g]?.items[it];
+            if (defaultItem) service.groups[g].items[it].price = defaultItem.price;
+          }
+        }
+      } else {
+        service.basePrice = defaultService.basePrice;
+      }
+    }
+  }
+}
+
+applyServicePriceOverrides(loadOverrides());

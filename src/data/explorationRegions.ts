@@ -1,4 +1,5 @@
 export const UNSELECTED = -1;
+import { loadOverrides, type PriceOverrides } from "./priceStorage";
 
 // Define exact pairs for absolute pricing control
 export interface PriceData {
@@ -317,3 +318,27 @@ export function buildExplorationReceiptItems(
 
   return items;
 }
+
+const DEFAULT_EXPLORATION_REGIONS: ExplorationRegion[] = JSON.parse(JSON.stringify(EXPLORATION_REGIONS));
+
+export function applyExplorationPriceOverrides(overrides: PriceOverrides): void {
+  for (const region of EXPLORATION_REGIONS) {
+    const override = overrides.explorationRegions[region.id];
+    if (override) {
+      region.perAreaPrice = { ...override.perAreaPrice };
+      region.pricePerPct = { ...override.pricePerPct };
+    }
+  }
+}
+
+export function restoreExplorationDefaults(): void {
+  const defaultsById = new Map(DEFAULT_EXPLORATION_REGIONS.map((r) => [r.id, r]));
+  for (const region of EXPLORATION_REGIONS) {
+    const d = defaultsById.get(region.id);
+    if (!d) continue;
+    region.perAreaPrice = { ...d.perAreaPrice };
+    region.pricePerPct = { ...d.pricePerPct };
+  }
+}
+
+applyExplorationPriceOverrides(loadOverrides());
