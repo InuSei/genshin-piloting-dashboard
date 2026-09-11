@@ -3,13 +3,23 @@
 // Private admin page for editing prices. Not linked from anywhere by
 // default — reach it directly at /admin/prices. Edits are staged locally
 // until you hit "Save All", which persists them to localStorage and
-// applies them live to the running app (App.tsx and ClientPricelist.tsx
-// read from the same CATEGORIES / EXPLORATION_REGIONS objects, so no
-// changes were needed there).
+// applies them live to the running app.
 
 import { useState } from "react";
-import { Save, RotateCcw, Download, Upload, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Coins,
+  Download,
+  Layers,
+  Map,
+  Package,
+  RotateCcw,
+  Save,
+  Tag,
+  Upload,
+} from "lucide-react";
 import {
   CATEGORIES,
   applyServicePriceOverrides,
@@ -36,6 +46,103 @@ function cloneCategories(): Category[] {
 }
 function cloneRegions(): ExplorationRegion[] {
   return JSON.parse(JSON.stringify(EXPLORATION_REGIONS));
+}
+
+const TYPE_META: Record<string, { label: string; background: string; border: string; color: string }> = {
+  checkbox: { label: "Add-on", background: "rgba(77, 122, 153, 0.1)", border: "rgba(77, 122, 153, 0.25)", color: "#4d7a99" },
+  quantity: { label: "Per Unit", background: "rgba(143, 184, 209, 0.12)", border: "rgba(143, 184, 209, 0.3)", color: "#5c85a0" },
+  "nested-list": { label: "Grouped Items", background: "rgba(94, 137, 170, 0.1)", border: "rgba(94, 137, 170, 0.28)", color: "#5c89a8" },
+};
+
+function TypeBadge({ type }: { type: string }) {
+  const meta = TYPE_META[type] ?? TYPE_META.checkbox;
+  return (
+    <span
+      className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shrink-0"
+      style={{ background: meta.background, border: `1px solid ${meta.border}`, color: meta.color }}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
+function CurrencyInput({
+  value,
+  onChange,
+  step,
+  className = "flex-1",
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  step?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className} style={{ minWidth: 0 }}>
+      <input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full px-2 py-2 text-[13px] font-mono font-semibold bg-white rounded-lg outline-none transition-all focus:border-[#4d7a99] focus:ring-2 focus:ring-[rgba(77,122,153,0.18)]"
+        style={{ border: "1px solid #cfdce4", color: "#17222c" }}
+      />
+    </div>
+  );
+}
+
+function RatePair({
+  valuePhp,
+  valueUsd,
+  onPhp,
+  onUsd,
+}: {
+  valuePhp: number;
+  valueUsd: number;
+  onPhp: (v: number) => void;
+  onUsd: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>₱</span>
+      <CurrencyInput value={valuePhp} onChange={onPhp} />
+      <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>$</span>
+      <CurrencyInput value={valueUsd} onChange={onUsd} step="0.01" />
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  highlight,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className="rounded-2xl px-4 py-3.5 bg-white flex items-center gap-3 transition-all"
+      style={{
+        border: highlight ? "1px solid rgba(77,122,153,0.45)" : "1px solid #e2eaef",
+        boxShadow: highlight ? "0 4px 16px rgba(77,122,153,0.12)" : "0 2px 10px rgba(23,34,44,0.04)",
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: highlight ? "rgba(77,122,153,0.14)" : "rgba(77,122,153,0.08)", color: "#4d7a99" }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: "#9db0bc" }}>{label}</p>
+        <p className="font-mono text-[18px] font-bold leading-tight" style={{ color: "#17222c" }}>{value}</p>
+      </div>
+    </div>
+  );
 }
 
 export function PriceEditor() {
@@ -198,247 +305,308 @@ export function PriceEditor() {
 
   const currentCategory = categories.find((c) => c.id === activeTab);
   const tabs = [
-    ...categories.map((c) => ({ id: c.id, label: `${c.emoji} ${c.label}` })),
-    { id: "exploration-rates", label: "🗺 Exploration Rates" },
+    ...categories.map((c) => ({ id: c.id, label: c.label })),
+    { id: "exploration-rates", label: "Exploration Rates" },
   ];
 
+  const savedOverrides = loadOverrides();
+  const overrideCount =
+    Object.keys(savedOverrides.serviceBase).length +
+    Object.keys(savedOverrides.nestedItems).length +
+    Object.keys(savedOverrides.explorationRegions).length;
+  const totalServiceCount = categories.reduce((sum, c) => sum + c.services.length, 0);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-5xl mx-auto w-full px-6 pt-5 pb-4 flex flex-col gap-4">
+    <div
+      className="min-h-screen text-[#17222c] font-sans flex flex-col"
+      style={{ background: "linear-gradient(180deg, #f2f6f9 0%, #e8eef3 100%)" }}
+    >
+      <header
+        className="sticky top-0 z-50"
+        style={{ background: "rgba(13, 20, 32, 0.94)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(77, 122, 153, 0.25)" }}
+      >
+        <div className="max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 pb-4 flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <Link to="/" className="text-slate-400 hover:text-slate-600">
-                <ArrowLeft size={20} />
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                to="/"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(77,122,153,0.3)", color: "#a9c6d8" }}
+              >
+                <ArrowLeft size={15} />
+                Dashboard
               </Link>
-              <div>
-                <h1 className="font-mono text-[16px] font-bold text-[#1e3a5f] tracking-[0.15em] uppercase">
-                  Price Editor
-                </h1>
-                <p className="text-[11px] font-bold text-[#6082a6] tracking-widest uppercase">
-                  Admin Only
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <h1 className="font-mono text-[16px] font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: "#eef3f6" }}>
+                    Price Editor
+                  </h1>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest shrink-0"
+                    style={{ background: "rgba(179,48,63,0.18)", border: "1px solid rgba(179,48,63,0.4)", color: "#e08a95" }}
+                  >
+                    Admin
+                  </span>
+                </div>
+                <p className="text-[11px] mt-0.5 font-medium truncate" style={{ color: "#7891a3" }}>
+                  Edit service prices &amp; exploration rates — changes apply live after Save All
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-semibold hover:bg-slate-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
+                style={{ border: "1px solid rgba(77,122,153,0.3)", color: "#a9bccb", background: "rgba(255,255,255,0.04)" }}
               >
-                <Download size={14} /> Export
+                <Download size={14} />
+                Export
               </button>
-              <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-semibold hover:bg-slate-50 cursor-pointer">
-                <Upload size={14} /> Import
-                <input
-                  type="file"
-                  accept="application/json"
-                  onChange={handleImportFile}
-                  className="hidden"
-                />
+              <label
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all hover:bg-white/5"
+                style={{ border: "1px solid rgba(77,122,153,0.3)", color: "#a9bccb", background: "rgba(255,255,255,0.04)" }}
+              >
+                <Upload size={14} />
+                Import
+                <input type="file" accept="application/json" onChange={handleImportFile} className="hidden" />
               </label>
               <button
                 onClick={handleReset}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 text-red-500 text-[13px] font-semibold hover:bg-red-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
+                style={{ border: "1px solid rgba(179,48,63,0.4)", color: "#e08a95", background: "rgba(179,48,63,0.06)" }}
               >
-                <RotateCcw size={14} /> Reset
+                <RotateCcw size={14} />
+                Reset
               </button>
               <button
                 onClick={handleSaveAll}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#5b9ff6] text-white text-[13px] font-bold hover:bg-[#4a8fe6]"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold transition-transform hover:-translate-y-px"
+                style={{ background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", boxShadow: "0 4px 14px rgba(77,122,153,0.35)" }}
               >
-                <Save size={14} /> Save All
+                <Save size={14} />
+                Save All
               </button>
             </div>
           </div>
 
-          <nav
-            className="flex items-center p-1.5 rounded-full bg-[#f1f5f9] overflow-x-auto border border-slate-200 w-full"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center justify-center px-4 py-2 rounded-full transition-all whitespace-nowrap shrink-0 text-[13px]"
-                  style={
-                    isActive
-                      ? { background: "#5b9ff6", color: "#fff", fontWeight: 700 }
-                      : { background: "transparent", color: "#64748b", fontWeight: 500 }
-                  }
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <nav
+              className="flex items-center p-1 rounded-xl overflow-x-auto w-full"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(77,122,153,0.22)", scrollbarWidth: "none" }}
+            >
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="flex items-center justify-center px-4 py-2 rounded-lg transition-all whitespace-nowrap shrink-0 text-[13px]"
+                    style={
+                      isActive
+                        ? { background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", fontWeight: 700, boxShadow: "0 2px 8px rgba(77,122,153,0.3)" }
+                        : { background: "transparent", color: "#a9bccb", fontWeight: 500 }
+                    }
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="hidden lg:flex items-center gap-1.5 shrink-0 text-[10px] font-semibold" style={{ color: "#8fa4b3" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#8fb8d1", boxShadow: "0 0 6px rgba(143,184,209,0.8)" }} />
+              Staged preview — saved on &quot;Save All&quot;
+            </div>
+          </div>
         </div>
       </header>
 
       {savedMessage && (
-        <div className="max-w-5xl mx-auto w-full px-6 pt-4">
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] font-semibold rounded-lg px-4 py-2.5">
+        <div key={savedMessage} className="relative z-10 max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 animate-fade-up">
+          <div
+            className="flex items-center gap-2.5 text-[13px] font-semibold rounded-xl px-4 py-3 bg-white"
+            style={{ border: "1px solid rgba(16,185,129,0.4)", color: "#0f9d6a", boxShadow: "0 10px 30px rgba(16,185,129,0.15)" }}
+          >
+            <CheckCircle2 size={16} />
             {savedMessage}
           </div>
         </div>
       )}
 
       <main className="max-w-5xl mx-auto w-full px-4 md:px-6 py-8 flex flex-col gap-6 flex-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard icon={<Layers size={16} />} label="Categories" value={categories.length} />
+          <StatCard icon={<Package size={16} />} label="Services" value={totalServiceCount} />
+          <StatCard icon={<Map size={16} />} label="Exploration Regions" value={regions.length} />
+          <StatCard icon={<Coins size={16} />} label="Saved Overrides" value={overrideCount} highlight={overrideCount > 0} />
+        </div>
+
         {activeTab === "exploration-rates" ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="hidden md:flex items-center p-4 bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-              <div className="w-1/4">Region</div>
-              <div className="w-1/4 text-right pr-6">Per Area (0–40%)</div>
-              <div className="w-1/4 text-right pr-6">Per 1% (41–100%)</div>
-            </div>
-            {regions.map((region) => (
-              <div
-                key={region.id}
-                className="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-slate-100 last:border-b-0"
-              >
-                <div className="md:w-1/4 font-bold text-[14px] text-[#1e3a5f]">
-                  {region.name}
-                </div>
-                <div className="md:w-1/4 flex items-center gap-1.5">
-                  <span className="text-[12px] text-slate-400 shrink-0">₱</span>
-                  <input
-                    type="number"
-                    value={region.perAreaPrice.php}
-                    onChange={(e) =>
-                      updateRegionRate(region.id, "perAreaPrice", "php", Number(e.target.value))
-                    }
-                    className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-[13px] font-mono"
-                  />
-                  <span className="text-[12px] text-slate-400 shrink-0">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={region.perAreaPrice.usd}
-                    onChange={(e) =>
-                      updateRegionRate(region.id, "perAreaPrice", "usd", Number(e.target.value))
-                    }
-                    className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-[13px] font-mono"
-                  />
-                </div>
-                <div className="md:w-1/4 flex items-center gap-1.5">
-                  <span className="text-[12px] text-slate-400 shrink-0">₱</span>
-                  <input
-                    type="number"
-                    value={region.pricePerPct.php}
-                    onChange={(e) =>
-                      updateRegionRate(region.id, "pricePerPct", "php", Number(e.target.value))
-                    }
-                    className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-[13px] font-mono"
-                  />
-                  <span className="text-[12px] text-slate-400 shrink-0">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={region.pricePerPct.usd}
-                    onChange={(e) =>
-                      updateRegionRate(region.id, "pricePerPct", "usd", Number(e.target.value))
-                    }
-                    className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-[13px] font-mono"
-                  />
-                </div>
+          <section key="exploration-rates" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
+            <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
+                <Map size={16} style={{ color: "#4d7a99" }} />
               </div>
-            ))}
-          </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Exploration Rates</h2>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                  Flat per-area price for 0–40% completion · per-1% rate for 41–100%
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+            >
+              <span>Region</span>
+              <span className="text-right">Per Area · 0–40%</span>
+              <span className="text-right">Per 1% · 41–100%</span>
+            </div>
+
+            <div className="flex flex-col">
+              {regions.map((region, ri) => (
+                <div
+                  key={region.id}
+                  className={`flex flex-col md:flex-row md:items-center gap-3 px-5 py-4 ${ri !== regions.length - 1 ? "border-b" : ""} hover:bg-[#f7fafc] transition-colors`}
+                  style={{ borderColor: "#eef3f6" }}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 md:w-[calc(100%-440px)] md:pr-4 shrink-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
+                    <span className="font-bold text-[14px] truncate" style={{ color: "#17222c" }}>{region.name}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
+                    <span className="md:hidden text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>Per Area (0–40%)</span>
+                    <RatePair
+                      valuePhp={region.perAreaPrice.php}
+                      valueUsd={region.perAreaPrice.usd}
+                      onPhp={(v) => updateRegionRate(region.id, "perAreaPrice", "php", v)}
+                      onUsd={(v) => updateRegionRate(region.id, "perAreaPrice", "usd", v)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
+                    <span className="md:hidden text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>Per 1% (41–100%)</span>
+                    <RatePair
+                      valuePhp={region.pricePerPct.php}
+                      valueUsd={region.pricePerPct.usd}
+                      onPhp={(v) => updateRegionRate(region.id, "pricePerPct", "php", v)}
+                      onUsd={(v) => updateRegionRate(region.id, "pricePerPct", "usd", v)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         ) : currentCategory ? (
-          <div className="flex flex-col gap-6">
+          <section key={currentCategory.id} className="animate-fade-up flex flex-col gap-5">
+            <div className="flex items-center gap-3 px-1">
+              <div className="w-1 self-stretch min-h-10 rounded-full" style={{ background: "linear-gradient(180deg,#4d7a99,#8fb8d1)" }} />
+              <div>
+                <h2 className="text-[20px] font-extrabold tracking-tight" style={{ color: "#17222c" }}>{currentCategory.label}</h2>
+                <p className="text-[13px] font-medium mt-0.5" style={{ color: "#5c7284" }}>{currentCategory.description}</p>
+              </div>
+            </div>
+
             {currentCategory.services.map((service) => (
               <div
                 key={service.id}
-                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col gap-5"
+                className="bg-white rounded-2xl overflow-hidden transition-shadow hover:shadow-[0_10px_30px_rgba(23,34,44,0.08)]"
+                style={{ border: "1px solid #e2eaef" }}
               >
-                <div className="border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-[#1e3a5f] text-[16px]">{service.name}</h3>
+                <div
+                  className="flex items-start justify-between gap-3 px-5 py-4"
+                  style={{ background: "linear-gradient(180deg,#fafcfd,#f2f6f9)", borderBottom: "1px solid #eef3f6" }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
+                      <Tag size={15} style={{ color: "#4d7a99" }} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-[15px] truncate" style={{ color: "#17222c" }}>{service.name}</h3>
+                      {service.description && (
+                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>{service.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <TypeBadge type={service.type} />
                 </div>
 
-                {service.type === "nested-list" && service.groups ? (
-                  <div className="flex flex-col gap-6">
-                    {service.groups.map((group, gi) => (
-                      <div key={group.name} className="flex flex-col gap-2">
-                        <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">
-                          {group.name}
-                        </h4>
-                        {group.items.map((item, ii) => {
-                          const price =
-                            typeof item.price === "object"
-                              ? item.price
-                              : { php: item.price, usd: item.price };
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex flex-col md:flex-row md:items-center justify-between gap-2 py-1.5 border-b border-slate-50 last:border-b-0"
-                            >
-                              <span className="text-[13px] font-medium text-slate-600">
-                                {item.name}
-                              </span>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[12px] text-slate-400">₱</span>
-                                <input
-                                  type="number"
-                                  value={price.php}
-                                  onChange={(e) =>
-                                    updateNestedItemPrice(
-                                      currentCategory.id,
-                                      service.id,
-                                      gi,
-                                      ii,
-                                      "php",
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-24 border border-slate-200 rounded-md px-2 py-1 text-[13px] font-mono"
-                                />
-                                <span className="text-[12px] text-slate-400">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={price.usd}
-                                  onChange={(e) =>
-                                    updateNestedItemPrice(
-                                      currentCategory.id,
-                                      service.id,
-                                      gi,
-                                      ii,
-                                      "usd",
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-20 border border-slate-200 rounded-md px-2 py-1 text-[13px] font-mono"
-                                />
+                <div className="p-5">
+                  {service.type === "nested-list" && service.groups ? (
+                    <div className="flex flex-col gap-5">
+                      {service.groups.map((group, gi) => (
+                        <div key={group.name} className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 mb-1.5 px-3">
+                            <span className="font-mono text-[10px] font-bold" style={{ color: "#4d7a99" }}>
+                              {String(gi + 1).padStart(2, "0")}
+                            </span>
+                            <h4 className="text-[11px] font-extrabold uppercase tracking-widest whitespace-nowrap" style={{ color: "#9db0bc" }}>
+                              {group.name}
+                            </h4>
+                            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,#eef3f6,transparent)" }} />
+                          </div>
+                          {group.items.map((item, ii) => {
+                            const price =
+                              typeof item.price === "object"
+                                ? item.price
+                                : { php: item.price, usd: item.price };
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f7fafc]"
+                                style={{ border: "1px solid transparent" }}
+                              >
+                                <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
+                                  {item.name}
+                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0 ml-4">
+                                  <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>₱</span>
+                                  <CurrencyInput
+                                    className="w-20"
+                                    value={price.php}
+                                    onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "php", v)}
+                                  />
+                                  <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>$</span>
+                                  <CurrencyInput
+                                    className="w-20"
+                                    value={price.usd}
+                                    onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "usd", v)}
+                                    step="0.01"
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>
+                          Base Rate
+                        </span>
+                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#9db0bc" }}>
+                          Per unit (PHP)
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">
-                      Base Rate (₱)
-                    </span>
-                    <input
-                      type="number"
-                      value={service.basePrice}
-                      onChange={(e) =>
-                        updateServiceBasePrice(
-                          currentCategory.id,
-                          service.id,
-                          Number(e.target.value)
-                        )
-                      }
-                      className="w-28 border border-slate-200 rounded-md px-2 py-1.5 text-[14px] font-mono"
-                    />
-                  </div>
-                )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[13px] font-bold" style={{ color: "#9db0bc" }}>₱</span>
+                        <CurrencyInput
+                          className="w-28"
+                          value={service.basePrice}
+                          onChange={(v) => updateServiceBasePrice(currentCategory.id, service.id, v)}
+                        />
+                        <span className="text-[11px] font-mono font-semibold" style={{ color: "#9db0bc" }}>
+                          ≈ ${(service.basePrice / 60.75).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
-          </div>
+          </section>
         ) : null}
       </main>
     </div>

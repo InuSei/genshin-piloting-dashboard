@@ -89,7 +89,7 @@ export default function App() {
   const cartCount = receiptItems.length;
 
   return (
-    <div className="flex flex-col w-full bg-slate-50 min-h-screen lg:h-screen lg:overflow-hidden">
+    <div className="flex flex-col w-full min-h-screen lg:h-screen lg:overflow-hidden">
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
           activeCategory={activeCategory}
@@ -100,11 +100,17 @@ export default function App() {
 
       <div className="flex flex-col lg:flex-row flex-1 relative z-10 lg:min-h-0">
         <main className="flex-1 lg:overflow-y-auto px-4 lg:px-6 py-6" style={{ minWidth: 0 }}>
-          <div className="w-full rounded-2xl overflow-hidden mb-6 border border-slate-200 shadow-sm bg-slate-100 flex">
-            <img 
-              src="/hero-banner.png" 
-              alt="Suino Piloting Service Banner" 
-              className="w-full h-auto block opacity-95" 
+          <div
+            className="w-full rounded-2xl overflow-hidden mb-6 relative"
+            style={{
+              border: "1px solid rgba(77, 122, 153, 0.25)",
+              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.45)",
+            }}
+          >
+            <img
+              src="/hero-banner.png"
+              alt="Zapolyarny Bureau Piloting Services Banner"
+              className="w-full h-auto block"
             />
           </div>
 
