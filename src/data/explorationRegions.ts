@@ -124,7 +124,7 @@ export const EXPLORATION_REGIONS: ExplorationRegion[] = [
   {
     id: "nod-krai",
     name: "Nod-Krai",
-    tag: "Expansion",
+    tag: "Patch 6.0",
     subAreas: [
       { id: "lempo-isle", name: "Lempo Isle", pricePerPct: { php: 5, usd: 0.08 } },
       { id: "hiisi-island", name: "Hiisi Island", pricePerPct: { php: 3, usd: 0.05 } },
@@ -137,7 +137,7 @@ export const EXPLORATION_REGIONS: ExplorationRegion[] = [
   {
     id: "snezhnaya",
     name: "Snezhnaya",
-    tag: "Patch 6.x",
+    tag: "Patch 7.0",
     subAreas: [
       { id: "flamefeather-valley", name: "Flamefeather Valley", pricePerPct: { php: 4, usd: 0.065 } },
       { id: "volkodlak-tundra", name: "Volkodlak Tundra", pricePerPct: { php: 5.5, usd: 0.089 } },
