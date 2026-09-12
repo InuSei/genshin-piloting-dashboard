@@ -13,11 +13,14 @@ function formatPrice(price: PriceValue): string {
 const EXPLORATION_RATES = EXPLORATION_REGIONS.map((region: ExplorationRegion) => ({
   name: region.name,
   tag: region.tag,
-  full: {
-    php: region.perAreaPrice.php * region.subAreas.length,
-    usd: region.perAreaPrice.usd * region.subAreas.length,
-  },
-  partial: region.pricePerPct,
+  areas: region.subAreas.map((sa) => ({
+    name: sa.name,
+    full: {
+      php: Math.round(sa.pricePerPct.php * 100 * 100) / 100,
+      usd: Math.round(sa.pricePerPct.usd * 100 * 100) / 100,
+    },
+    partial: sa.pricePerPct,
+  })),
 }));
 
 export function ClientPricelist() {
@@ -110,28 +113,33 @@ export function ClientPricelist() {
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  {EXPLORATION_RATES.map((item, idx) => (
-                    <div
-                      key={item.name}
-                      className={`flex flex-col md:flex-row md:items-center justify-between p-4 md:px-4 md:py-3.5 gap-3 md:gap-0 ${idx !== EXPLORATION_RATES.length - 1 ? "border-b" : ""}`}
-                      style={{ borderColor: "#e2eaef" }}
-                    >
-                      <div className="font-bold text-[15px] md:w-1/3" style={{ color: "#17222c" }}>
-                        <span className="align-middle">{item.name}</span>
-                        <span className="hidden md:inline-block align-middle ml-2 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded" style={{ color: "#9db0bc", background: "#eef3f6" }}>
-                          {item.tag}
-                        </span>
+                  {EXPLORATION_RATES.map((region) => (
+                    <div key={region.name} className="flex flex-col">
+                      <div className="flex items-center justify-between gap-3 px-4 py-2.5" style={{ background: "#f7fafc", borderBottom: "1px solid #e2eaef" }}>
+                        <span className="font-extrabold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded" style={{ color: "#9db0bc", background: "#eef3f6" }}>{region.tag}</span>
                       </div>
-                      <div className="flex justify-between md:w-2/3 md:justify-end md:gap-12 md:pr-4">
-                         <div className="flex flex-col md:items-end w-32">
-                           <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>100% Completion</span>
-                           <span className="text-[14px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(item.full)}</span>
-                         </div>
-                         <div className="flex flex-col items-end w-24">
-                           <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>Per 1%</span>
-                           <span className="text-[14px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(item.partial)}</span>
-                         </div>
-                      </div>
+                      {region.areas.map((area, idx) => (
+                        <div
+                          key={area.name}
+                          className={`flex flex-col md:flex-row md:items-center justify-between p-4 md:px-4 md:py-3 gap-3 md:gap-0 ${idx !== region.areas.length - 1 ? "border-b" : ""}`}
+                          style={{ borderColor: "#e2eaef" }}
+                        >
+                          <div className="font-bold text-[14px] md:w-1/2" style={{ color: "#17222c" }}>
+                            <span className="align-middle">{area.name}</span>
+                          </div>
+                          <div className="flex justify-between md:w-1/2 md:justify-end md:gap-12 md:pr-4">
+                            <div className="flex flex-col md:items-end w-32">
+                              <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>100% Completion</span>
+                              <span className="text-[14px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(area.full)}</span>
+                            </div>
+                            <div className="flex flex-col items-end w-24">
+                              <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>Per 1%</span>
+                              <span className="text-[14px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(area.partial)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>

@@ -7,250 +7,238 @@ export interface PriceData {
   usd: number;
 }
 
+// Each sub-area carries its own per-1% rate (PHP + USD), matching the
+// "Exploration Calculator" workbook. Price = missing % x the area's rate.
 export interface SubArea {
   id: string;
   name: string;
+  pricePerPct: PriceData;
 }
 
 export interface ExplorationRegion {
   id: string;
   name: string;
   tag: string;
-  perAreaPrice: PriceData; // <-- ADD THIS: The exact flat price for 0%-40%
-  pricePerPct: PriceData;  // The inflated rate for >40% 
   subAreas: SubArea[];
 }
 
 export type ExplorationSelections = Record<string, number>;
 
-// The exact pricing from your screenshot
+// Rates sourced from "Exploration Calc (PHP)" / "Exploration Calc (USD)".
+// Natlan & Nod-Krai USD = PHP / 60 (the workbook only stored PHP values there).
 export const EXPLORATION_REGIONS: ExplorationRegion[] = [
   {
     id: "mondstadt",
     name: "Mondstadt",
     tag: "Patch 1.0",
-    perAreaPrice: { php: 130, usd: 2.25 },
-    pricePerPct: { php: 2, usd: 0.04 }, 
     subAreas: [
-      { id: "brightcrown-mountain", name: "Brightcrown Mountain" },
-      { id: "starfell-valley", name: "Starfell Valley" },
-      { id: "windwail-highland", name: "Windwail Highland" },
-      { id: "galesong-hill", name: "Galesong Hill" },
+      { id: "brightcrown-mountain", name: "Brightcrown Mountain", pricePerPct: { php: 2.45, usd: 0.039 } },
+      { id: "galesong-hill", name: "Galesong Hill", pricePerPct: { php: 1.5, usd: 0.024 } },
+      { id: "starfell-valley", name: "Starfell Valley", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "windwail-highland", name: "Windwail Highland", pricePerPct: { php: 1.5, usd: 0.024 } },
     ],
   },
   {
     id: "liyue",
     name: "Liyue",
     tag: "Patch 1.0",
-    perAreaPrice: { php: 220, usd: 3.75 },
-    pricePerPct: { php: 2, usd: 0.04 },
     subAreas: [
-      { id: "bishui-plain", name: "Bishui Plain" },
-      { id: "minlin", name: "Minlin" },
-      { id: "lisha", name: "Lisha" },
-      { id: "sea-of-clouds", name: "Sea of Clouds" },
-      { id: "qiongji-estuary", name: "Qiongji Estuary" },
+      { id: "bishui-plain", name: "Bishui Plain", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "lisha", name: "Lisha", pricePerPct: { php: 2, usd: 0.032 } },
+      { id: "minlin", name: "Minlin", pricePerPct: { php: 3, usd: 0.048 } },
+      { id: "qiongji-estuary", name: "Qiongji Estuary", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "sea-of-clouds", name: "Sea of Clouds", pricePerPct: { php: 2.5, usd: 0.04 } },
     ],
   },
   {
     id: "inazuma",
     name: "Inazuma",
     tag: "Patch 2.0",
-    perAreaPrice: { php: 300, usd: 5 },
-    pricePerPct: { php: 4, usd: 0.07 },
     subAreas: [
-      { id: "narukami", name: "Narukami Island" },
-      { id: "kannazuka", name: "Kannazuka" },
-      { id: "yashiori", name: "Yashiori Island" },
-      { id: "watatsumi", name: "Watatsumi Island" },
-      { id: "seirai", name: "Seirai Island" },
-      { id: "tsurumi", name: "Tsurumi Island" },
+      { id: "narukami", name: "Narukami Island", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "kannazuka", name: "Kannazuka", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "yashiori", name: "Yashiori Island", pricePerPct: { php: 2, usd: 0.03 } },
+      { id: "watatsumi", name: "Watatsumi Island", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "seirai", name: "Seirai Island", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "tsurumi", name: "Tsurumi Island", pricePerPct: { php: 3, usd: 0.05 } },
     ],
   },
   {
     id: "sumeru-forest",
     name: "Sumeru Forest",
     tag: "Patch 3.0",
-    perAreaPrice: { php: 240, usd: 4 },
-    pricePerPct: { php: 3, usd: 0.05 },
     subAreas: [
-      { id: "avidya-forest", name: "Avidya Forest" },
-      { id: "lokapala-jungle", name: "Lokapala Jungle" },
-      { id: "ardravi-valley", name: "Ardravi Valley" },
-      { id: "ashavan-realm", name: "Ashavan Realm" },
-      { id: "vissudha-field", name: "Vissudha Field" },
-      { id: "lost-nursery", name: "Lost Nursery" },
+      { id: "vanarana", name: "Vanarana", pricePerPct: { php: 2, usd: 0.03 } },
+      { id: "avidya-forest", name: "Avidya Forest", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "lokapala-jungle", name: "Lokapala Jungle", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "ardravi-valley", name: "Ardravi Valley", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "ashavan-realm", name: "Ashavan Realm", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "vissudha-field", name: "Vissudha Field", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "lost-nursery", name: "Lost Nursery", pricePerPct: { php: 1.5, usd: 0.02 } },
     ],
   },
   {
     id: "sumeru-desert",
     name: "Sumeru Desert",
     tag: "Patch 3.1+",
-    perAreaPrice: { php: 240, usd: 4 },
-    pricePerPct: { php: 3, usd: 0.05 },
     subAreas: [
-      { id: "lower-setekh", name: "Land of Lower Setekh" },
-      { id: "upper-setekh", name: "Land of Upper Setekh" },
-      { id: "hypostyle-desert", name: "Hypostyle Desert" },
-      { id: "hadramaveth", name: "Desert of Hadramaveth" },
-      { id: "girdle-of-sands", name: "Girdle of the Sands" },
+      { id: "lower-setekh", name: "Land of Lower Setekh", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "upper-setekh", name: "Land of Upper Setekh", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "hypostyle-desert", name: "Hypostyle Desert", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "hadramaveth", name: "Desert of Hadramaveth", pricePerPct: { php: 5.5, usd: 0.09 } },
+      { id: "gavireh-lajavard", name: "Gavireh Lajavard", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "realm-of-farakhkert", name: "Realm of Farakhkert", pricePerPct: { php: 3, usd: 0.05 } },
     ],
   },
   {
     id: "fontaine",
     name: "Fontaine",
     tag: "Patch 4.0",
-    perAreaPrice: { php: 300, usd: 5 },
-    pricePerPct: { php: 4, usd: 0.07 },
     subAreas: [
-      { id: "court-fontaine", name: "Court of Fontaine" },
-      { id: "beryl", name: "Beryl Region" },
-      { id: "belleau", name: "Belleau Region" },
-      { id: "liffey", name: "Liffey Region" },
-      { id: "morte", name: "Morte Region" },
-      { id: "erinnyes", name: "Erinnyes Forest" },
-      { id: "nostoi", name: "Nostoi Region" },
+      { id: "court-fontaine", name: "Court of Fontaine", pricePerPct: { php: 3.5, usd: 0.04 } },
+      { id: "beryl", name: "Beryl Region", pricePerPct: { php: 3, usd: 0.06 } },
+      { id: "belleau", name: "Belleau Region", pricePerPct: { php: 2, usd: 0.05 } },
+      { id: "liffey", name: "Liffey Region", pricePerPct: { php: 2.5, usd: 0.06 } },
+      { id: "morte", name: "Morte Region", pricePerPct: { php: 3.5, usd: 0.02 } },
+      { id: "erinnyes", name: "Erinnyes Forest", pricePerPct: { php: 3, usd: 0.03 } },
+      { id: "nostoi", name: "Nostoi Region", pricePerPct: { php: 1, usd: 0.05 } },
+      { id: "frik", name: "F.R.I.K. Energy Engineering", pricePerPct: { php: 3.5, usd: 0.06 } },
     ],
   },
   {
     id: "natlan",
     name: "Natlan",
     tag: "Patch 5.0",
-    perAreaPrice: { php: 130, usd: 2.25 },
-    pricePerPct: { php: 4, usd: 0.07 },
     subAreas: [
-      { id: "tequemecan-valley", name: "Tequemecan Valley" },
-      { id: "coatepec-mountain", name: "Coatepec Mountain" },
-      { id: "toyac-springs", name: "Toyac Springs" },
-      { id: "basin-unnumbered-flames", name: "Basin of Unnumbered Flames" },
-      { id: "tezcatepetonco-range", name: "Tezcatepetonco Range" },
-      { id: "quahuacan-cliff", name: "Quahuacan Cliff" },
-      { id: "ochkanatlan", name: "Ochkanatlan" },
-      { id: "atocpan", name: "Atocpan" },
-      { id: "easybreeze-resort", name: "Easybreeze Holiday Resort" },
+      { id: "tequemecan-valley", name: "Tequemecan Valley", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "coatepec-mountain", name: "Coatepec Mountain", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "toyac-springs", name: "Toyac Springs", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "basin-unnumbered-flames", name: "Basin of Unnumbered Flames", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "tezcatepetonco-range", name: "Tezcatepetonco Range", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "quahuacan-cliff", name: "Quahuacan Cliff", pricePerPct: { php: 2, usd: 0.03 } },
+      { id: "ochkanatlan", name: "Ochkanatlan", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "atocpan", name: "Atocpan", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "easybreeze-resort", name: "Easybreeze Holiday Resort", pricePerPct: { php: 4.5, usd: 0.08 } },
     ],
   },
   {
     id: "nod-krai",
-    name: "Nod-krai",
+    name: "Nod-Krai",
     tag: "Expansion",
-    perAreaPrice: { php: 240, usd: 4 },
-    pricePerPct: { php: 4, usd: 0.07 },
     subAreas: [
-      { id: "lempo-isle", name: "Lempo Isle" },
-      { id: "hiisi-island", name: "Hiisi Island" },
-      { id: "paha-isle", name: "Paha Isle" },
-      { id: "voidsea-outlook", name: "Voidsea Outlook" },
-      { id: "wavechaser-plain", name: "Wavechaser Plain" },
-      { id: "ashveil-peak", name: "Ashveil Peak" },
+      { id: "lempo-isle", name: "Lempo Isle", pricePerPct: { php: 5, usd: 0.08 } },
+      { id: "hiisi-island", name: "Hiisi Island", pricePerPct: { php: 3, usd: 0.05 } },
+      { id: "paha-isle", name: "Paha Isle", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "voidsea-outlook", name: "Voidsea Outlook", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "wavechaser-plain", name: "Wavechaser Plain", pricePerPct: { php: 3.5, usd: 0.06 } },
+      { id: "ashveil-peak", name: "Ashveil Peak", pricePerPct: { php: 3, usd: 0.05 } },
     ],
   },
   {
-    id:"chenyu",
-    name:"Chenyu Vale",
-    tag:"Expansions",
-    perAreaPrice: { php: 200, usd: 3.33 },
-    pricePerPct: {php: 3, usd: 0.06},
-    subAreas:[
-      {id:"upper-vale", name:"Chenyu Vale: Upper Vale"},
-      {id:"southern", name:"Chenyu Vale: Southern Mt."},
-      {id:"laixin", name:"Mt. Laixin Exploration"},
+    id: "snezhnaya",
+    name: "Snezhnaya",
+    tag: "Patch 6.x",
+    subAreas: [
+      { id: "flamefeather-valley", name: "Flamefeather Valley", pricePerPct: { php: 4, usd: 0.065 } },
+      { id: "volkodlak-tundra", name: "Volkodlak Tundra", pricePerPct: { php: 5.5, usd: 0.089 } },
+      { id: "fellfrost-peak", name: "Fellfrost Peak", pricePerPct: { php: 3.5, usd: 0.057 } },
+      { id: "everfrozen-earth", name: "Everfrozen Earth", pricePerPct: { php: 5.5, usd: 0.089 } },
+      { id: "white-birch-snowgrave", name: "White Birch Snowgrave", pricePerPct: { php: 3.5, usd: 0.057 } },
     ],
   },
   {
-    id:"chasm",
-    name:"The Chasm",
-    tag:"Expansions",
-    perAreaPrice: { php: 300, usd: 5 },
-    pricePerPct: {php: 3, usd: 0.06},
-    subAreas:[
-      {id:"surface", name:"The Chasm (Surface)"},
-      {id:"underground", name:"The Chasm: Mining Underground"},
+    id: "chenyu",
+    name: "Chenyu Vale",
+    tag: "Expansions",
+    subAreas: [
+      { id: "upper-vale", name: "Chenyu Vale: Upper Vale", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "southern", name: "Chenyu Vale: Southern Mt.", pricePerPct: { php: 2.5, usd: 0.04 } },
+      { id: "laixin", name: "Mt. Laixin Exploration", pricePerPct: { php: 1, usd: 0.016 } },
     ],
   },
   {
-    id:"windrest",
-    name:"Windrest Peak",
-    tag:"Expansions",
-    perAreaPrice: { php: 420, usd: 7 },
-    pricePerPct: {php: 4, usd: 0.08},
-    subAreas:[
-      {id:"windrest-peak", name:"Windrest Peak"},
+    id: "chasm",
+    name: "The Chasm",
+    tag: "Expansions",
+    subAreas: [
+      { id: "surface", name: "The Chasm (Surface)", pricePerPct: { php: 4, usd: 0.06 } },
+      { id: "underground", name: "The Chasm: Mining Underground", pricePerPct: { php: 4, usd: 0.06 } },
     ],
   },
   {
-    id:"temple",
-    name:"Temple of Space",
-    tag:"Expansions",
-    perAreaPrice: { php: 780, usd: 13 },
-    pricePerPct: {php: 8, usd: 0.15},
-    subAreas:[
-      {id:"temple-of-space", name:"Temple of Space"},
+    id: "dragonspine",
+    name: "Dragonspine",
+    tag: "Expansions",
+    subAreas: [
+      { id: "dragonspine", name: "Dragonspine", pricePerPct: { php: 5, usd: 0.08 } },
     ],
   },
   {
-    id:"enkanomiya",
-    name:"Enkanomiya",
-    tag:"Expansions",
-    perAreaPrice: { php: 600, usd: 10 },
-    pricePerPct: {php: 6, usd: 0.11},
-    subAreas:[
-      {id:"enkanomiya", name:"Enkanomiya"},
+    id: "windrest",
+    name: "Windrest Peak",
+    tag: "Expansions",
+    subAreas: [
+      { id: "windrest-peak", name: "Windrest Peak", pricePerPct: { php: 5.02, usd: 0.08 } },
     ],
   },
   {
-    id:"ancient",
-    name:"Ancient Sacred Mountain",
-    tag:"Expansions",
-    perAreaPrice: { php: 780, usd: 13 },
-    pricePerPct: {php: 8, usd: 0.15},
-    subAreas:[
-      {id:"temple-of-space", name:"Ancient Sacred Mountain"},
+    id: "temple",
+    name: "Temple of Space",
+    tag: "Expansions",
+    subAreas: [
+      { id: "temple-of-space", name: "Temple of Space", pricePerPct: { php: 10, usd: 0.15 } },
     ],
   },
   {
-    id:"bygone-era",
-    name:"Sea of Bygone Eras",
-    tag:"Expansions",
-    perAreaPrice: { php: 420, usd: 7 },
-    pricePerPct: {php: 8, usd: 0.15},
-    subAreas:[
-      {id:"sea-of-bygone-eras", name:"Sea of Bygone Eras"},
+    id: "enkanomiya",
+    name: "Enkanomiya",
+    tag: "Expansions",
+    subAreas: [
+      { id: "enkanomiya", name: "Enkanomiya", pricePerPct: { php: 6.9, usd: 0.11 } },
+    ],
+  },
+  {
+    id: "ancient",
+    name: "Ancient Sacred Mountain",
+    tag: "Expansions",
+    subAreas: [
+      { id: "ancient-sacred-mountain", name: "Ancient Sacred Mountain", pricePerPct: { php: 8.78, usd: 0.14 } },
+    ],
+  },
+  {
+    id: "bygone-era",
+    name: "Sea of Bygone Eras",
+    tag: "Expansions",
+    subAreas: [
+      { id: "sea-of-bygone-eras", name: "Sea of Bygone Eras", pricePerPct: { php: 3.5, usd: 0.07 } },
+    ],
+  },
+  {
+    id: "frostmoon",
+    name: "Frost Moon",
+    tag: "Expansions",
+    subAreas: [
+      { id: "lunar-highlands", name: "Lunar Highlands", pricePerPct: { php: 6, usd: 0.1 } },
+      { id: "moontide-sea", name: "Moontide Sea", pricePerPct: { php: 4, usd: 0.06 } },
+      { id: "darkside-of-the-moon", name: "Darkside of the Moon", pricePerPct: { php: 2.5, usd: 0.04 } },
     ],
   },
 ];
 
-// Explicit exact fees 
-const CLEAN_UP_FEE = { php: 50, usd: 1.00 }; 
+export function findArea(regionId: string, areaId: string): SubArea | undefined {
+  const region = EXPLORATION_REGIONS.find((r) => r.id === regionId);
+  return region?.subAreas.find((sa) => sa.id === areaId);
+}
 
-export function calculateRemainingWorkPrice(region: ExplorationRegion, currentProgress: number): PriceData {
+export function calculateAreaPrice(area: SubArea, currentProgress: number): PriceData {
   if (currentProgress === UNSELECTED || currentProgress >= 100) {
     return { php: 0, usd: 0 };
   }
 
-  let calculatedPhp = 0;
-  let calculatedUsd = 0;
-  const remainingPercentage = 100 - currentProgress;
-
-  // 1. Base Tier (0% - 40%): Pulls your exact flat area price
-  if (currentProgress <= 40) {
-    calculatedPhp = region.perAreaPrice.php;
-    calculatedUsd = region.perAreaPrice.usd;
-  } 
-  // 2. Mid Tier (41% - 79%): Strict Percentage Rate
-  else if (currentProgress < 80) {
-    calculatedPhp = remainingPercentage * region.pricePerPct.php;
-    calculatedUsd = remainingPercentage * region.pricePerPct.usd;
-  } 
-  // 3. Clean-Up Tier (80% - 99%): Percentage Rate + Trouble Fee
-  else {
-    calculatedPhp = (remainingPercentage * region.pricePerPct.php) + CLEAN_UP_FEE.php;
-    calculatedUsd = (remainingPercentage * region.pricePerPct.usd) + CLEAN_UP_FEE.usd;
-  }
-
+  const missingPct = Math.max(0, 100 - currentProgress);
   return {
-    php: Math.round(calculatedPhp),
-    usd: Math.round(calculatedUsd * 100) / 100
+    php: Math.round(area.pricePerPct.php * missingPct * 100) / 100,
+    usd: Math.round(area.pricePerPct.usd * missingPct * 100) / 100,
   };
 }
 
@@ -260,7 +248,7 @@ export function regionTotal(
 ): PriceData {
   return region.subAreas.reduce((sum, sa) => {
     const currentProgress = selections[`${region.id}__${sa.id}`] ?? UNSELECTED;
-    const price = calculateRemainingWorkPrice(region, currentProgress);
+    const price = calculateAreaPrice(sa, currentProgress);
     return {
       php: sum.php + price.php,
       usd: sum.usd + price.usd
@@ -284,13 +272,12 @@ export function regionAvgPct(
   return count === 0 ? 0 : Math.round(totalEntered / count);
 }
 
-// Ensure your receipt accepts the new PriceData structure
 export interface ReceiptLineItem {
   id: string;
   categoryLabel: string;
   name: string;
   detail: string;
-  price: PriceData; 
+  price: PriceData;
 }
 
 export function buildExplorationReceiptItems(
@@ -303,14 +290,14 @@ export function buildExplorationReceiptItems(
       const currentProgress = selections[`${region.id}__${sa.id}`] ?? UNSELECTED;
       if (currentProgress === UNSELECTED || currentProgress >= 100) continue;
 
-      const price = calculateRemainingWorkPrice(region, currentProgress);
+      const price = calculateAreaPrice(sa, currentProgress);
       if (price.php <= 0) continue;
 
       items.push({
         id: `${region.id}__${sa.id}`,
         categoryLabel: `World Exploration — ${region.name}`,
         name: sa.name,
-        detail: `${currentProgress}% → 100%`,
+        detail: `${currentProgress}% → 100% · ₱${sa.pricePerPct.php}/1%`,
         price,
       });
     }
@@ -323,10 +310,9 @@ const DEFAULT_EXPLORATION_REGIONS: ExplorationRegion[] = JSON.parse(JSON.stringi
 
 export function applyExplorationPriceOverrides(overrides: PriceOverrides): void {
   for (const region of EXPLORATION_REGIONS) {
-    const override = overrides.explorationRegions[region.id];
-    if (override) {
-      region.perAreaPrice = { ...override.perAreaPrice };
-      region.pricePerPct = { ...override.pricePerPct };
+    for (const sa of region.subAreas) {
+      const override = overrides.explorationAreas[`${region.id}__${sa.id}`];
+      if (override) sa.pricePerPct = { ...override };
     }
   }
 }
@@ -336,8 +322,7 @@ export function restoreExplorationDefaults(): void {
   for (const region of EXPLORATION_REGIONS) {
     const d = defaultsById.get(region.id);
     if (!d) continue;
-    region.perAreaPrice = { ...d.perAreaPrice };
-    region.pricePerPct = { ...d.pricePerPct };
+    region.subAreas = d.subAreas.map((sa) => ({ ...sa, pricePerPct: { ...sa.pricePerPct } }));
   }
 }
 

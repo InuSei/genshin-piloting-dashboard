@@ -3,7 +3,7 @@ import {
   EXPLORATION_REGIONS,
   regionTotal,
   regionAvgPct,
-  calculateRemainingWorkPrice,
+  calculateAreaPrice,
   UNSELECTED,
   type ExplorationSelections,
 } from "../data/explorationRegions";
@@ -132,7 +132,7 @@ export function ExplorationPanel({
                     textAlign: "right",
                   }}
                 >
-                  {hasData ? `₱${finalRegionPhp.toLocaleString("en-PH")}` : `₱0`}
+                  {hasData ? `₱${finalRegionPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `₱0`}
                 </span>
               </button>
 
@@ -154,7 +154,7 @@ export function ExplorationPanel({
                     {region.subAreas.map((sa) => {
                       const key = `${region.id}__${sa.id}`;
                       const pct = selections[key] ?? UNSELECTED;
-                      const priceObj = calculateRemainingWorkPrice(region, pct);
+                      const priceObj = calculateAreaPrice(sa, pct);
                       const isActive = pct !== UNSELECTED;
 
                       return (
@@ -190,7 +190,7 @@ export function ExplorationPanel({
                             </span>
                           </div>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "14px", fontWeight: 700, color: isActive ? "#4d7a99" : "#9db0bc", width: "72px", textAlign: "right" }}>
-                            {isActive ? `₱${priceObj.php.toLocaleString("en-PH")}` : "—"}
+                            {isActive ? `₱${priceObj.php.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                           </span>
                         </div>
                       );
@@ -218,7 +218,7 @@ export function ExplorationPanel({
                       Region Subtotal
                     </span>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: hasData ? "#4d7a99" : "#9db0bc" }}>
-                      ₱{finalRegionPhp.toLocaleString("en-PH")}
+                      ₱{finalRegionPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

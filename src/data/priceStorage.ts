@@ -15,17 +15,14 @@ export interface PriceOverrides {
   serviceBase: Record<string, number>;
   // price overrides for nested-list items, keyed by item.id
   nestedItems: Record<string, StoredPrice>;
-  // rate overrides for exploration regions, keyed by region.id
-  explorationRegions: Record<
-    string,
-    { perAreaPrice: StoredPrice; pricePerPct: StoredPrice }
-  >;
+  // per-1% rate overrides for exploration sub-areas, keyed by `${regionId}__${areaId}`
+  explorationAreas: Record<string, StoredPrice>;
 }
 
-const STORAGE_KEY = "suino_price_overrides_v1";
+const STORAGE_KEY = "suino_price_overrides_v2";
 
 function emptyOverrides(): PriceOverrides {
-  return { serviceBase: {}, nestedItems: {}, explorationRegions: {} };
+  return { serviceBase: {}, nestedItems: {}, explorationAreas: {} };
 }
 
 export function loadOverrides(): PriceOverrides {
@@ -36,7 +33,7 @@ export function loadOverrides(): PriceOverrides {
     return {
       serviceBase: parsed.serviceBase ?? {},
       nestedItems: parsed.nestedItems ?? {},
-      explorationRegions: parsed.explorationRegions ?? {},
+      explorationAreas: parsed.explorationAreas ?? {},
     };
   } catch {
     return emptyOverrides();
@@ -69,7 +66,7 @@ export function parseImportedOverrides(json: string): PriceOverrides | null {
     return {
       serviceBase: parsed.serviceBase ?? {},
       nestedItems: parsed.nestedItems ?? {},
-      explorationRegions: parsed.explorationRegions ?? {},
+      explorationAreas: parsed.explorationAreas ?? {},
     };
   } catch {
     return null;

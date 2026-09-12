@@ -212,24 +212,64 @@ export function PriceEditor() {
     );
   };
 
-  const updateRegionRate = (
+  const updateAreaRate = (
     regionId: string,
-    field: "perAreaPrice" | "pricePerPct",
+    areaId: string,
     sub: "php" | "usd",
     value: number
   ) => {
     setRegions((prev) =>
       prev.map((r) =>
-        r.id === regionId ? { ...r, [field]: { ...r[field], [sub]: value } } : r
+        r.id === regionId
+          ? {
+              ...r,
+              subAreas: r.subAreas.map((sa) =>
+                sa.id === areaId ? { ...sa, pricePerPct: { ...sa.pricePerPct, [sub]: value } } : sa
+              ),
+            }
+          : r
       )
     );
   };
+
+  const updateRegionBundle = (
+    regionId: string,
+    sub: "php" | "usd",
+    value: number
+  ) => {
+    setRegions((prev) =>
+      prev.map((r) => {
+        if (r.id !== regionId) return r;
+        const oldBundle = r.subAreas.reduce(
+          (sum, sa) => sum + sa.pricePerPct[sub] * 100,
+          0
+        );
+        const scale = oldBundle === 0 ? 1 : value / oldBundle;
+        return {
+          ...r,
+          subAreas: r.subAreas.map((sa) => ({
+            ...sa,
+            pricePerPct: {
+              ...sa.pricePerPct,
+              [sub]: Math.round(sa.pricePerPct[sub] * scale * 10000) / 10000,
+            },
+          })),
+        };
+      })
+    );
+  };
+
+  const regionBundle = (r: ExplorationRegion, sub: "php" | "usd") =>
+    Math.round(r.subAreas.reduce((sum, sa) => sum + sa.pricePerPct[sub] * 100, 0) * 100) / 100;
+
+  const regionRate = (r: ExplorationRegion, sub: "php" | "usd") =>
+    Math.round(r.subAreas.reduce((sum, sa) => sum + sa.pricePerPct[sub], 0) * 10000) / 10000;
 
   const buildOverridesFromState = (): PriceOverrides => {
     const overrides: PriceOverrides = {
       serviceBase: {},
       nestedItems: {},
-      explorationRegions: {},
+      explorationAreas: {},
     };
     for (const c of categories) {
       for (const s of c.services) {
@@ -249,10 +289,9 @@ export function PriceEditor() {
       }
     }
     for (const r of regions) {
-      overrides.explorationRegions[r.id] = {
-        perAreaPrice: r.perAreaPrice,
-        pricePerPct: r.pricePerPct,
-      };
+      for (const sa of r.subAreas) {
+        overrides.explorationAreas[`${r.id}__${sa.id}`] = sa.pricePerPct;
+      }
     }
     return overrides;
   };
@@ -313,7 +352,7 @@ export function PriceEditor() {
   const overrideCount =
     Object.keys(savedOverrides.serviceBase).length +
     Object.keys(savedOverrides.nestedItems).length +
-    Object.keys(savedOverrides.explorationRegions).length;
+    Object.keys(savedOverrides.explorationAreas).length;
   const totalServiceCount = categories.reduce((sum, c) => sum + c.services.length, 0);
 
   return (
@@ -450,47 +489,105 @@ export function PriceEditor() {
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Exploration Rates</h2>
                 <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
-                  Flat per-area price for 0–40% completion · per-1% rate for 41–100%
+                  Per-1% price for each sub-area — total = missing % × rate
                 </p>
               </div>
             </div>
 
             <div
               className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+            >
+              <span>Sub-Area</span>
+              <span className="text-right">Price per 1%</span>
+            </div>
+
+            <div className="flex flex-col">
+              {regions.map((region, ri) => (
+                <div key={region.id}>
+                  <div
+                    className="flex items-center gap-2.5 px-5 py-2.5 bg-[#f7fafc]"
+                    style={{ borderTop: ri !== 0 ? "1px solid #eef3f6" : "none" }}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
+                    <span className="font-bold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc", background: "#eef3f6" }}>
+                      {region.tag}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    {region.subAreas.map((sa) => (
+                      <div
+                        key={sa.id}
+                        className={`flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-5 py-3 hover:bg-[#f7fafc] transition-colors ${sa !== region.subAreas[region.subAreas.length - 1] ? "border-b" : ""}`}
+                        style={{ borderColor: "#eef3f6" }}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 md:w-[calc(100%-236px)] shrink-0">
+                          <span className="text-[13px] font-medium truncate" style={{ color: "#5c7284" }}>{sa.name}</span>
+                        </div>
+                        <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
+                          <RatePair
+                            valuePhp={sa.pricePerPct.php}
+                            valueUsd={sa.pricePerPct.usd}
+                            onPhp={(v) => updateAreaRate(region.id, sa.id, "php", v)}
+                            onUsd={(v) => updateAreaRate(region.id, sa.id, "usd", v)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : currentCategory && currentCategory.id === "exploration" ? (
+          <section key="exploration-bundles" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
+            <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
+                <Map size={16} style={{ color: "#4d7a99" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>World Exploration — Region Bundles</h2>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                  Edit the bundled 100% price per region — per-1% rates scale proportionally
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
+              style={{ gridTemplateColumns: "minmax(0,1fr) 120px 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
             >
               <span>Region</span>
-              <span className="text-right">Per Area · 0–40%</span>
-              <span className="text-right">Per 1% · 41–100%</span>
+              <span className="text-right">Per 1% (Σ areas)</span>
+              <span className="text-right">Bundle · 100% Region</span>
             </div>
 
             <div className="flex flex-col">
               {regions.map((region, ri) => (
                 <div
                   key={region.id}
-                  className={`flex flex-col md:flex-row md:items-center gap-3 px-5 py-4 ${ri !== regions.length - 1 ? "border-b" : ""} hover:bg-[#f7fafc] transition-colors`}
+                  className={`flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-5 py-4 ${ri !== regions.length - 1 ? "border-b" : ""} hover:bg-[#f7fafc] transition-colors`}
                   style={{ borderColor: "#eef3f6" }}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 md:w-[calc(100%-440px)] md:pr-4 shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0 md:w-[calc(100%-372px)] shrink-0">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
                     <span className="font-bold text-[14px] truncate" style={{ color: "#17222c" }}>{region.name}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest shrink-0" style={{ color: "#9db0bc", background: "#eef3f6" }}>
+                      {region.tag}
+                    </span>
+                    <span className="text-[10px] font-semibold shrink-0" style={{ color: "#9db0bc" }}>{region.subAreas.length} area{region.subAreas.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2 md:flex-none md:w-[120px] md:shrink-0 md:justify-end">
+                    <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>₱ {regionRate(region, "php").toFixed(2)}</span>
+                    <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>$ {regionRate(region, "usd").toFixed(3)}</span>
                   </div>
                   <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
-                    <span className="md:hidden text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>Per Area (0–40%)</span>
                     <RatePair
-                      valuePhp={region.perAreaPrice.php}
-                      valueUsd={region.perAreaPrice.usd}
-                      onPhp={(v) => updateRegionRate(region.id, "perAreaPrice", "php", v)}
-                      onUsd={(v) => updateRegionRate(region.id, "perAreaPrice", "usd", v)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
-                    <span className="md:hidden text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>Per 1% (41–100%)</span>
-                    <RatePair
-                      valuePhp={region.pricePerPct.php}
-                      valueUsd={region.pricePerPct.usd}
-                      onPhp={(v) => updateRegionRate(region.id, "pricePerPct", "php", v)}
-                      onUsd={(v) => updateRegionRate(region.id, "pricePerPct", "usd", v)}
+                      valuePhp={regionBundle(region, "php")}
+                      valueUsd={regionBundle(region, "usd")}
+                      onPhp={(v) => updateRegionBundle(region.id, "php", v)}
+                      onUsd={(v) => updateRegionBundle(region.id, "usd", v)}
                     />
                   </div>
                 </div>

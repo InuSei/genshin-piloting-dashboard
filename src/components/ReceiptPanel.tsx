@@ -473,21 +473,9 @@ async function exportReceiptAsPNG(
               const totalVal = currency === "PHP" ? getPhp(saItem.price) : getUsd(saItem.price);
               regionSubtotal += totalVal;
 
-              let displayRate = "";
-              if (startPct <= 40) {
-                  displayRate = currency === "PHP"
-                      ? `Flat ₱${r.perAreaPrice.php}`
-                      : `Flat $${r.perAreaPrice.usd.toFixed(2)}`;
-              } else if (startPct < 80) {
-                  displayRate = currency === "PHP"
-                      ? `₱${r.pricePerPct.php}`
-                      : `$${r.pricePerPct.usd.toFixed(2)}`;
-              } else {
-                  const cleanupFee = currency === "PHP" ? 50 : 1.00;
-                  displayRate = currency === "PHP"
-                      ? `₱${r.pricePerPct.php} + ₱${cleanupFee}`
-                      : `$${r.pricePerPct.usd.toFixed(2)} + $${cleanupFee.toFixed(2)}`;
-              }
+              const displayRate = currency === "PHP"
+                  ? `₱${sa.pricePerPct.php}`
+                  : `$${sa.pricePerPct.usd.toFixed(2)}`;
 
               ctx.fillStyle = "#17222c";
               ctx.font = "600 11px sans-serif";
