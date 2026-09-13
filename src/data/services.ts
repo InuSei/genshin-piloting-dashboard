@@ -191,6 +191,13 @@ export const CATEGORIES: Category[] = [
             ]
           },
           {
+            name: "Snezhnaya",
+            items: [
+              { id: "aq_sne_1", name: "Act I: Everwinter Without Mercy", price: { php: 150, usd: 2.45 } },
+              { id: "aq_sne_2", name: "Act II: Wraith's Nocturne", price: { php: 150, usd: 2.45 } },
+            ]
+          },
+          {
             name: "Interludes",
             items: [
               { id: "aq_int_1", name: "Act I", price: { php: 60, usd: 1.00 } },
