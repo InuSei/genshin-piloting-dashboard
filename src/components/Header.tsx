@@ -1,18 +1,13 @@
 import { useState } from "react";
 
-export type CategoryId =
-  | "maintenance"
-  | "exploration"
-  | "quests"
-  | "character"
-  | "others";
+export type CategoryId = string;
 
-interface CategoryTab {
-  id: CategoryId;
+export interface CategoryTab {
+  id: string;
   label: string;
 }
 
-const TABS: CategoryTab[] = [
+export const GENSHIN_TABS: CategoryTab[] = [
   { id: "maintenance", label: "Maintenance" },
   { id: "exploration", label: "World Exploration" },
   { id: "quests", label: "Quests" },
@@ -20,13 +15,22 @@ const TABS: CategoryTab[] = [
   { id: "others", label: "Other Services" },
 ];
 
+export const HSR_TABS: CategoryTab[] = [
+  { id: "maintenance", label: "Maintenance" },
+  { id: "exploration", label: "World Exploration" },
+  { id: "quests", label: "Quests" },
+  { id: "endgame", label: "Endgame" },
+  { id: "memoir", label: "Conventional Memoir" },
+];
+
 interface HeaderProps {
-  activeCategory: CategoryId;
-  onCategoryChange: (id: CategoryId) => void;
+  tabs?: CategoryTab[];
+  activeCategory: string;
+  onCategoryChange: (id: string) => void;
   cartCount: number;
 }
 
-export function Header({ activeCategory, onCategoryChange, cartCount }: HeaderProps) {
+export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, cartCount }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -77,7 +81,7 @@ export function Header({ activeCategory, onCategoryChange, cartCount }: HeaderPr
             border: "1px solid rgba(77, 122, 153, 0.25)",
           }}
         >
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const isActive = activeCategory === tab.id;
             return (
               <button
@@ -163,7 +167,7 @@ export function Header({ activeCategory, onCategoryChange, cartCount }: HeaderPr
           <p className="text-[10px] font-bold uppercase tracking-wider mb-1 mt-2 px-2" style={{ color: "#7891a3" }}>
             Select Service Category
           </p>
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const isActive = activeCategory === tab.id;
             return (
               <button

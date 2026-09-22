@@ -23,7 +23,8 @@ export function ReceiptPanel({
   isFirstTimeClient,
   onToggleFirstTimeClient,
   explorationSelections,
-  noCompassRegions
+  noCompassRegions,
+  banner = "/hero-banner.png",
 }: {
   clientName: string;
   onClientNameChange: (name: string) => void;
@@ -34,6 +35,7 @@ export function ReceiptPanel({
   onToggleFirstTimeClient: (val: boolean) => void;
   explorationSelections: Record<string, number>;
   noCompassRegions: Record<string, boolean>;
+  banner?: string;
 }) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -63,7 +65,8 @@ export function ReceiptPanel({
         new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }),
         currency,
         explorationSelections,
-        noCompassRegions
+        noCompassRegions,
+        banner
       );
     } catch (err) {
       console.error("Export failed", err);
@@ -270,9 +273,10 @@ async function exportReceiptAsPNG(
   dateStr: string,
   currency: "PHP" | "USD",
   explorationSelections: Record<string, number>,
-  noCompassRegions: Record<string, boolean>
+  noCompassRegions: Record<string, boolean>,
+  banner: string
 ) {
-  const bannerImg = await loadImage("/hero-banner.png").catch(() => null);
+  const bannerImg = await loadImage(banner).catch(() => null);
 
   const CANVAS_W = 600;
   const CARD_W = 520;

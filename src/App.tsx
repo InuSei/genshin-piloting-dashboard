@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Header, type CategoryId } from "./components/Header";
+import { Header, GENSHIN_TABS } from "./components/Header";
 import { ServiceList } from "./components/ServiceList";
 import { ExplorationPanel } from "./components/ExplorationPanel";
 import { ReceiptPanel } from "./components/ReceiptPanel";
@@ -16,7 +16,7 @@ import {
 } from "./data/explorationRegions";
 
 export default function App() {
-  const [activeCategory, setActiveCategory] = useState<CategoryId>("maintenance");
+  const [activeCategory, setActiveCategory] = useState<string>("maintenance");
   const [selections, setSelections] = useState<ServiceSelection>({});
   const [explorationSelections, setExplorationSelections] = useState<ExplorationSelections>({});
   const [clientName, setClientName] = useState("");
@@ -92,6 +92,7 @@ export default function App() {
     <div className="flex flex-col w-full min-h-screen lg:h-screen lg:overflow-hidden">
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
+          tabs={GENSHIN_TABS}
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           cartCount={cartCount}

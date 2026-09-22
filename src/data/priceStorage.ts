@@ -4,6 +4,9 @@
 // localStorage so edits survive page reloads without needing a backend.
 // Export/Import let you back up your prices to a file or move them to
 // another device/browser.
+//
+// Each game keeps its own override set under its own storage key so the
+// Genshin and Star Rail editors never clobber each other.
 
 export interface StoredPrice {
   php: number;
@@ -19,15 +22,16 @@ export interface PriceOverrides {
   explorationAreas: Record<string, StoredPrice>;
 }
 
-const STORAGE_KEY = "suino_price_overrides_v2";
+export const GENSHIN_STORAGE_KEY = "suino_price_overrides_v2";
+export const HSR_STORAGE_KEY = "suino_price_overrides_hsr";
 
 function emptyOverrides(): PriceOverrides {
   return { serviceBase: {}, nestedItems: {}, explorationAreas: {} };
 }
 
-export function loadOverrides(): PriceOverrides {
+export function loadOverrides(storageKey: string = GENSHIN_STORAGE_KEY): PriceOverrides {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return emptyOverrides();
     const parsed = JSON.parse(raw);
     return {
@@ -40,22 +44,22 @@ export function loadOverrides(): PriceOverrides {
   }
 }
 
-export function saveOverrides(overrides: PriceOverrides): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+export function saveOverrides(overrides: PriceOverrides, storageKey: string = GENSHIN_STORAGE_KEY): void {
+  localStorage.setItem(storageKey, JSON.stringify(overrides));
 }
 
-export function clearOverrides(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearOverrides(storageKey: string = GENSHIN_STORAGE_KEY): void {
+  localStorage.removeItem(storageKey);
 }
 
-export function exportOverridesAsFile(overrides: PriceOverrides): void {
+export function exportOverridesAsFile(overrides: PriceOverrides, prefix = "suino"): void {
   const blob = new Blob([JSON.stringify(overrides, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `suino-price-overrides-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `${prefix}-price-overrides-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

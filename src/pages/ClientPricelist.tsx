@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { CATEGORIES, type PriceValue } from "../data/services";
+import { Link } from "react-router-dom";
+import { CATEGORIES, type PriceValue, type Category } from "../data/services";
+import { HSR_CATEGORIES } from "../data/hsrServices";
 import { EXPLORATION_REGIONS, type ExplorationRegion } from "../data/explorationRegions";
 
 function formatPrice(price: PriceValue): string {
@@ -29,9 +31,64 @@ const EXPLORATION_RATES = EXPLORATION_REGIONS.map((region: ExplorationRegion) =>
   })),
 }));
 
-export function ClientPricelist() {
-  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0].id);
-  const category = CATEGORIES.find(c => c.id === activeCategory)!;
+interface PricelistGame {
+  key: "genshin" | "hsr";
+  gameName: string;
+  shortName: string;
+  banner: string;
+  categories: Category[];
+  showPctRates: boolean;
+}
+
+const GAMES: Record<"genshin" | "hsr", PricelistGame> = {
+  genshin: {
+    key: "genshin",
+    gameName: "Genshin Impact",
+    shortName: "Genshin",
+    banner: "hero-banner.png",
+    categories: CATEGORIES,
+    showPctRates: true,
+  },
+  hsr: {
+    key: "hsr",
+    gameName: "Honkai: Star Rail",
+    shortName: "Star Rail",
+    banner: "hero-banner2.png",
+    categories: HSR_CATEGORIES,
+    showPctRates: false,
+  },
+};
+
+function GameSwitch({ game }: { game: PricelistGame }) {
+  return (
+    <div
+      className="flex items-center p-1 rounded-full shrink-0"
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(77, 122, 153, 0.28)" }}
+    >
+      {(Object.keys(GAMES) as Array<"genshin" | "hsr">).map((key) => {
+        const isActive = game.key === key;
+        return (
+          <Link
+            key={key}
+            to={`/pricelist/${key}`}
+            className="flex items-center justify-center px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap text-[12px]"
+            style={
+              isActive
+                ? { background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", fontWeight: 700 }
+                : { background: "transparent", color: "#a9bccb", fontWeight: 500 }
+            }
+          >
+            {GAMES[key].shortName}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function PricelistPage({ game }: { game: PricelistGame }) {
+  const [activeCategory, setActiveCategory] = useState(game.categories[0].id);
+  const category = game.categories.find((c) => c.id === activeCategory)!;
 
   return (
     <div
@@ -43,14 +100,17 @@ export function ClientPricelist() {
         className="sticky top-0 z-50 flex flex-col"
         style={{ background: "rgba(13, 20, 32, 0.92)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(77, 122, 153, 0.25)" }}
       >
-        <div className="max-w-4xl mx-auto w-full px-6 pt-5 pb-4 flex flex-col gap-5">
-          <div className="leading-tight">
-            <h1 className="font-mono text-[18px] font-bold tracking-[0.15em] uppercase" style={{ color: "#eef3f6" }}>
-              Zapolyarny Bureau
-            </h1>
-            <p className="font-sans text-[11px] font-bold tracking-widest uppercase" style={{ color: "#8fb8d1" }}>
-              Piloting Services — Official Pricelist
-            </p>
+        <div className="max-w-4xl mx-auto w-full px-6 pt-5 pb-4 flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="leading-tight min-w-0">
+              <h1 className="font-mono text-[18px] font-bold tracking-[0.15em] uppercase" style={{ color: "#eef3f6" }}>
+                Zapolyarny Bureau
+              </h1>
+              <p className="font-sans text-[11px] font-bold tracking-widest uppercase" style={{ color: "#8fb8d1" }}>
+                {game.gameName} — Piloting Services · Official Pricelist
+              </p>
+            </div>
+            <GameSwitch game={game} />
           </div>
 
           <nav
@@ -58,7 +118,7 @@ export function ClientPricelist() {
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(77, 122, 153, 0.25)", scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
-            {CATEGORIES.map((tab) => {
+            {game.categories.map((tab) => {
               const isActive = activeCategory === tab.id;
               return (
                 <button
@@ -82,10 +142,10 @@ export function ClientPricelist() {
       <main className="max-w-4xl mx-auto w-full px-4 py-8 md:px-6 flex flex-col gap-8 flex-1">
 
         <div className="w-full rounded-2xl overflow-hidden shadow-sm flex shrink-0" style={{ border: "1px solid rgba(77,122,153,0.2)", boxShadow: "0 12px 40px rgba(23,34,44,0.12)" }}>
-          <img src="/hero-banner.png" alt="Zapolyarny Bureau Piloting Services Banner" className="w-full h-auto block" />
+          <img src={`/${game.banner}`} alt={`Zapolyarny Bureau ${game.gameName} Piloting Services Banner`} className="w-full h-auto block" />
         </div>
 
-        <section key={category.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+        <section key={`${game.key}-${category.id}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
 
           <div className="flex items-center gap-3 mb-6">
             <div className="w-1 h-12 rounded-full shrink-0" style={{ background: "linear-gradient(180deg, #4d7a99, #8fb8d1)" }} />
@@ -99,7 +159,7 @@ export function ClientPricelist() {
             </div>
           </div>
 
-          {category.id === "exploration" ? (
+          {game.showPctRates && category.id === "exploration" ? (
             <div className="flex flex-col gap-6">
               <div className="rounded-2xl p-5 flex gap-4 items-start shadow-sm" style={{ background: "#eef3f6", border: "1px solid #cfdce4" }}>
                 <div>
@@ -228,4 +288,12 @@ export function ClientPricelist() {
       </footer>
     </div>
   );
+}
+
+export function GenshinPricelist() {
+  return <PricelistPage game={GAMES.genshin} />;
+}
+
+export function HsrPricelist() {
+  return <PricelistPage game={GAMES.hsr} />;
 }

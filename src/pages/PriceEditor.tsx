@@ -4,6 +4,9 @@
 // default — reach it directly at /admin/prices. Edits are staged locally
 // until you hit "Save All", which persists them to localStorage and
 // applies them live to the running app.
+//
+// Supports both games we service: Genshin Impact (per-1% exploration) and
+// Honkai: Star Rail (flat bundles). Each game gets its own override store.
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -33,20 +36,72 @@ import {
   type ExplorationRegion,
 } from "../data/explorationRegions";
 import {
+  HSR_CATEGORIES,
+  applyHsrServicePriceOverrides,
+  restoreHsrServiceDefaults,
+} from "../data/hsrServices";
+import {
   loadOverrides,
   saveOverrides,
   clearOverrides,
   exportOverridesAsFile,
   parseImportedOverrides,
   type PriceOverrides,
+  GENSHIN_STORAGE_KEY,
+  HSR_STORAGE_KEY,
 } from "../data/priceStorage";
 
-function cloneCategories(): Category[] {
-  return JSON.parse(JSON.stringify(CATEGORIES));
+type GameKey = "genshin" | "hsr";
+
+interface EditorGameConfig {
+  key: GameKey;
+  label: string;
+  shortLabel: string;
+  storageKey: string;
+  filePrefix: string;
+  hasExplorationRates: boolean;
+  cloneCategories: () => Category[];
+  cloneRegions: () => ExplorationRegion[];
+  applyOverrides: (o: PriceOverrides) => void;
+  restoreDefaults: () => void;
 }
-function cloneRegions(): ExplorationRegion[] {
-  return JSON.parse(JSON.stringify(EXPLORATION_REGIONS));
-}
+
+const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
+  genshin: {
+    key: "genshin",
+    label: "Genshin Impact",
+    shortLabel: "Genshin",
+    storageKey: GENSHIN_STORAGE_KEY,
+    filePrefix: "gi",
+    hasExplorationRates: true,
+    cloneCategories: () => JSON.parse(JSON.stringify(CATEGORIES)),
+    cloneRegions: () => JSON.parse(JSON.stringify(EXPLORATION_REGIONS)),
+    applyOverrides: (o) => {
+      applyServicePriceOverrides(o);
+      applyExplorationPriceOverrides(o);
+    },
+    restoreDefaults: () => {
+      restoreServiceDefaults();
+      restoreExplorationDefaults();
+    },
+  },
+  hsr: {
+    key: "hsr",
+    label: "Honkai: Star Rail",
+    shortLabel: "Star Rail",
+    storageKey: HSR_STORAGE_KEY,
+    filePrefix: "hsr",
+    hasExplorationRates: false,
+    cloneCategories: () => JSON.parse(JSON.stringify(HSR_CATEGORIES)),
+    cloneRegions: () => [],
+    applyOverrides: (o) => {
+      applyHsrServicePriceOverrides(o);
+    },
+    restoreDefaults: () => {
+      restoreHsrServiceDefaults();
+    },
+  },
+};
 
 const TYPE_META: Record<string, { label: string; background: string; border: string; color: string }> = {
   checkbox: { label: "Add-on", background: "rgba(77, 122, 153, 0.1)", border: "rgba(77, 122, 153, 0.25)", color: "#4d7a99" },
@@ -120,7 +175,7 @@ function StatCard({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  value: number | string;
   highlight?: boolean;
 }) {
   return (
@@ -145,10 +200,43 @@ function StatCard({
   );
 }
 
-export function PriceEditor() {
-  const [categories, setCategories] = useState<Category[]>(cloneCategories);
-  const [regions, setRegions] = useState<ExplorationRegion[]>(cloneRegions);
-  const [activeTab, setActiveTab] = useState<string>(categories[0].id);
+function GameSwitch({ game, onSwitch }: { game: GameKey; onSwitch: (g: GameKey) => void }) {
+  return (
+    <div
+      className="flex items-center p-1 rounded-full shrink-0"
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(77,122,153,0.3)" }}
+    >
+      {(Object.keys(GAME_CONFIGS) as GameKey[]).map((key) => {
+        const isActive = game === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onSwitch(key)}
+            className="flex items-center justify-center px-3 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap text-[11px]"
+            style={
+              isActive
+                ? { background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", fontWeight: 700 }
+                : { background: "transparent", color: "#a9bccb", fontWeight: 600 }
+            }
+          >
+            {GAME_CONFIGS[key].shortLabel}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PriceEditorForGame({
+  game,
+  onSwitchGame,
+}: {
+  game: EditorGameConfig;
+  onSwitchGame: (g: GameKey) => void;
+}) {
+  const [categories, setCategories] = useState<Category[]>(game.cloneCategories);
+  const [regions, setRegions] = useState<ExplorationRegion[]>(game.cloneRegions);
+  const [activeTab, setActiveTab] = useState<string>(game.cloneCategories()[0].id);
   const [savedMessage, setSavedMessage] = useState("");
 
   const flash = (msg: string) => {
@@ -298,28 +386,26 @@ export function PriceEditor() {
 
   const handleSaveAll = () => {
     const overrides = buildOverridesFromState();
-    saveOverrides(overrides);
-    applyServicePriceOverrides(overrides);
-    applyExplorationPriceOverrides(overrides);
-    flash("Saved! Changes are live on the dashboard and pricelist.");
+    saveOverrides(overrides, game.storageKey);
+    game.applyOverrides(overrides);
+    flash(`Saved! ${game.label} changes are live on the dashboard and pricelist.`);
   };
 
   const handleReset = () => {
     if (
       !confirm(
-        "Reset ALL prices back to the original defaults? This clears your saved edits."
+        `Reset ALL ${game.label} prices back to the original defaults? This clears your saved edits.`
       )
     )
       return;
-    clearOverrides();
-    restoreServiceDefaults();
-    restoreExplorationDefaults();
-    setCategories(cloneCategories());
-    setRegions(cloneRegions());
+    clearOverrides(game.storageKey);
+    game.restoreDefaults();
+    setCategories(game.cloneCategories());
+    setRegions(game.cloneRegions());
     flash("Reset to defaults.");
   };
 
-  const handleExport = () => exportOverridesAsFile(loadOverrides());
+  const handleExport = () => exportOverridesAsFile(loadOverrides(game.storageKey), game.filePrefix);
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -331,11 +417,10 @@ export function PriceEditor() {
         alert("That file doesn't look like a valid price export.");
         return;
       }
-      saveOverrides(parsed);
-      applyServicePriceOverrides(parsed);
-      applyExplorationPriceOverrides(parsed);
-      setCategories(cloneCategories());
-      setRegions(cloneRegions());
+      saveOverrides(parsed, game.storageKey);
+      game.applyOverrides(parsed);
+      setCategories(game.cloneCategories());
+      setRegions(game.cloneRegions());
       flash("Import applied.");
     };
     reader.readAsText(file);
@@ -345,10 +430,10 @@ export function PriceEditor() {
   const currentCategory = categories.find((c) => c.id === activeTab);
   const tabs = [
     ...categories.map((c) => ({ id: c.id, label: c.label })),
-    { id: "exploration-rates", label: "Exploration Rates" },
+    ...(game.hasExplorationRates ? [{ id: "exploration-rates", label: "Exploration Rates" }] : []),
   ];
 
-  const savedOverrides = loadOverrides();
+  const savedOverrides = loadOverrides(game.storageKey);
   const overrideCount =
     Object.keys(savedOverrides.serviceBase).length +
     Object.keys(savedOverrides.nestedItems).length +
@@ -375,6 +460,7 @@ export function PriceEditor() {
                 <ArrowLeft size={15} />
                 Dashboard
               </Link>
+              <GameSwitch game={game.key} onSwitch={onSwitchGame} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">
                   <h1 className="font-mono text-[16px] font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: "#eef3f6" }}>
@@ -388,7 +474,7 @@ export function PriceEditor() {
                   </span>
                 </div>
                 <p className="text-[11px] mt-0.5 font-medium truncate" style={{ color: "#7891a3" }}>
-                  Edit service prices &amp; exploration rates — changes apply live after Save All
+                  {game.label} — edit service prices &amp; exploration rates · changes apply live after Save All
                 </p>
               </div>
             </div>
@@ -473,14 +559,18 @@ export function PriceEditor() {
       )}
 
       <main className="max-w-5xl mx-auto w-full px-4 md:px-6 py-8 flex flex-col gap-6 flex-1">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className={`grid grid-cols-2 gap-3 ${game.hasExplorationRates ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <StatCard icon={<Layers size={16} />} label="Categories" value={categories.length} />
           <StatCard icon={<Package size={16} />} label="Services" value={totalServiceCount} />
-          <StatCard icon={<Map size={16} />} label="Exploration Regions" value={regions.length} />
+          {game.hasExplorationRates ? (
+            <StatCard icon={<Map size={16} />} label="Exploration Regions" value={regions.length} />
+          ) : (
+            <StatCard icon={<Map size={16} />} label="Exploration" value="Bundles" />
+          )}
           <StatCard icon={<Coins size={16} />} label="Saved Overrides" value={overrideCount} highlight={overrideCount > 0} />
         </div>
 
-        {activeTab === "exploration-rates" ? (
+        {game.hasExplorationRates && activeTab === "exploration-rates" ? (
           <section key="exploration-rates" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
             <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
@@ -540,7 +630,7 @@ export function PriceEditor() {
               ))}
             </div>
           </section>
-        ) : currentCategory && currentCategory.id === "exploration" ? (
+        ) : game.hasExplorationRates && currentCategory && currentCategory.id === "exploration" ? (
           <section key="exploration-bundles" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
             <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
@@ -655,6 +745,7 @@ export function PriceEditor() {
                               >
                                 <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
                                   {item.name}
+                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0 ml-4">
                                   <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>₱</span>
@@ -708,4 +799,9 @@ export function PriceEditor() {
       </main>
     </div>
   );
+}
+
+export function PriceEditor() {
+  const [game, setGame] = useState<GameKey>("genshin");
+  return <PriceEditorForGame key={game} game={GAME_CONFIGS[game]} onSwitchGame={setGame} />;
 }
