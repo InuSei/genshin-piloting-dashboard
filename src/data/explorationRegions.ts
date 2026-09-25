@@ -248,11 +248,6 @@ export function calculateAreaPrice(area: SubArea, currentProgress: number): Pric
   };
 }
 
-export function getRegionRate(region: ExplorationRegion, currency: ExplorationCurrency): number {
-  const total = region.subAreas.reduce((sum, area) => sum + area.pricePerPct[currency], 0);
-  return Math.round(total * 1000000) / 1000000;
-}
-
 export function getRegionBundlePrice(region: ExplorationRegion): PriceData {
   return region.subAreas.reduce((sum, area) => {
     const price = calculateAreaPrice(area, 0);

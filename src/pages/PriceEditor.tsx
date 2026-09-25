@@ -8,7 +8,7 @@
 // Supports both games we service: Genshin Impact (per-1% exploration) and
 // Honkai: Star Rail (flat bundles). Each game gets its own override store.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -33,7 +33,6 @@ import {
   EXPLORATION_REGIONS,
   applyExplorationPriceOverrides,
   getRegionBundlePrice,
-  getRegionRate,
   restoreExplorationDefaults,
   type ExplorationCurrency,
   type ExplorationRegion,
@@ -127,24 +126,60 @@ function TypeBadge({ type }: { type: string }) {
 function CurrencyInput({
   value,
   onChange,
-  step = "any",
   className = "flex-1",
 }: {
   value: number;
   onChange: (v: number) => void;
-  step?: string;
   className?: string;
 }) {
+  const [draft, setDraft] = useState(() => String(value));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) setDraft(String(value));
+  }, [isEditing, value]);
+
+  const commitDraft = () => {
+    const normalized = draft.trim().replaceAll(",", "");
+    if (normalized === "") {
+      setDraft(String(value));
+      setIsEditing(false);
+      return;
+    }
+
+    const nextValue = Number(normalized);
+    if (Number.isFinite(nextValue) && nextValue >= 0) {
+      onChange(nextValue);
+      setDraft(String(nextValue));
+    } else {
+      setDraft(String(value));
+    }
+    setIsEditing(false);
+  };
+
   return (
     <div className={className} style={{ minWidth: 0 }}>
       <input
-        type="number"
-        min={0}
-        step={step}
-        value={value}
-        onChange={(e) => {
-          const nextValue = Number(e.target.value);
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={draft}
+        onFocus={(event) => {
+          setIsEditing(true);
+          event.currentTarget.select();
+        }}
+        onChange={(event) => {
+          const nextDraft = event.target.value;
+          setDraft(nextDraft);
+          setIsEditing(true);
+          const normalized = nextDraft.trim().replaceAll(",", "");
+          if (normalized === "") return;
+          const nextValue = Number(normalized);
           if (Number.isFinite(nextValue) && nextValue >= 0) onChange(nextValue);
+        }}
+        onBlur={commitDraft}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
         }}
         className="w-full px-2 py-2 text-[13px] font-mono font-semibold bg-white rounded-lg outline-none transition-all focus:border-[#4d7a99] focus:ring-2 focus:ring-[rgba(77,122,153,0.18)]"
         style={{ border: "1px solid #cfdce4", color: "#17222c" }}
@@ -158,20 +193,18 @@ function RatePair({
   valueUsd,
   onPhp,
   onUsd,
-  step = "any",
 }: {
   valuePhp: number;
   valueUsd: number;
   onPhp: (v: number) => void;
   onUsd: (v: number) => void;
-  step?: string;
 }) {
   return (
     <div className="flex items-center gap-1.5 min-w-0">
       <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>₱</span>
-      <CurrencyInput value={valuePhp} onChange={onPhp} step={step} />
+      <CurrencyInput value={valuePhp} onChange={onPhp} />
       <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>$</span>
-      <CurrencyInput value={valueUsd} onChange={onUsd} step={step} />
+      <CurrencyInput value={valueUsd} onChange={onUsd} />
     </div>
   );
 }
@@ -329,20 +362,18 @@ function PriceEditorForGame({
     );
   };
 
-  const updateRegionPrice = (
+  const updateRegionBundle = (
     regionId: string,
     sub: ExplorationCurrency,
-    value: number,
-    inputType: "rate" | "bundle"
+    value: number
   ) => {
     if (!Number.isFinite(value) || value < 0) return;
-    const targetBundle = Math.round((inputType === "rate" ? value * 100 : value) * 100) / 100;
+    const targetUnits = Math.round(value * 100);
 
     setRegions((prev) =>
       prev.map((r) => {
         if (r.id !== regionId) return r;
 
-        const targetUnits = Math.round(targetBundle * 100);
         const weights = r.subAreas.map((area) => Math.max(0, Math.round(area.pricePerPct[sub] * 100)));
         const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
         const allocations = weights.map((weight) =>
@@ -668,17 +699,16 @@ function PriceEditorForGame({
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>World Exploration — Region Bundles</h2>
                 <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
-                  Edit the summed 1% rate or the full-region bundle; sub-area rates scale proportionally
+                  Edit the full-region bundle; sub-area rates scale proportionally
                 </p>
               </div>
             </div>
 
             <div
               className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
             >
               <span>Region</span>
-              <span className="text-right">1% in Every Area (Σ)</span>
               <span className="text-right">Bundle · 100% Region</span>
             </div>
 
@@ -699,19 +729,10 @@ function PriceEditorForGame({
                   </div>
                   <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
                     <RatePair
-                      valuePhp={getRegionRate(region, "php")}
-                      valueUsd={getRegionRate(region, "usd")}
-                      onPhp={(v) => updateRegionPrice(region.id, "php", v, "rate")}
-                      onUsd={(v) => updateRegionPrice(region.id, "usd", v, "rate")}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
-                    <RatePair
-                      step="0.01"
                       valuePhp={getRegionBundlePrice(region).php}
                       valueUsd={getRegionBundlePrice(region).usd}
-                      onPhp={(v) => updateRegionPrice(region.id, "php", v, "bundle")}
-                      onUsd={(v) => updateRegionPrice(region.id, "usd", v, "bundle")}
+                      onPhp={(v) => updateRegionBundle(region.id, "php", v)}
+                      onUsd={(v) => updateRegionBundle(region.id, "usd", v)}
                     />
                   </div>
                 </div>
@@ -793,7 +814,6 @@ function PriceEditorForGame({
                                     className="w-20"
                                     value={price.usd}
                                     onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "usd", v)}
-                                    step="0.01"
                                   />
                                 </div>
                               </div>
