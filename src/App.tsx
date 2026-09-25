@@ -11,6 +11,8 @@ import {
 import {
   EXPLORATION_REGIONS,
   buildExplorationReceiptItems,
+  isBillableProgress,
+  type ExplorationBundles,
   type ExplorationSelections,
   UNSELECTED,
 } from "./data/explorationRegions";
@@ -19,6 +21,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<string>("maintenance");
   const [selections, setSelections] = useState<ServiceSelection>({});
   const [explorationSelections, setExplorationSelections] = useState<ExplorationSelections>({});
+  const [bundledRegions, setBundledRegions] = useState<ExplorationBundles>({});
   const [clientName, setClientName] = useState("");
   const [isFirstTimeClient, setIsFirstTimeClient] = useState<boolean>(false);
   const [noCompassRegions, setNoCompassRegions] = useState<Record<string, boolean>>({});
@@ -35,7 +38,20 @@ export default function App() {
   }, []);
 
   const handleExplorationChange = useCallback((key: string, value: number) => {
+    const regionId = key.split("__")[0];
+    setBundledRegions((prev) => ({ ...prev, [regionId]: false }));
     setExplorationSelections((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleToggleBundle = useCallback((regionId: string) => {
+    setBundledRegions((prev) => ({ ...prev, [regionId]: !prev[regionId] }));
+    setExplorationSelections((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key.startsWith(`${regionId}__`)) delete next[key];
+      }
+      return next;
+    });
   }, []);
 
   const handleToggleCompass = useCallback((regionId: string) => {
@@ -48,13 +64,18 @@ export default function App() {
   const handleClearAll = useCallback(() => {
     setSelections({});
     setExplorationSelections({});
+    setBundledRegions({});
     setNoCompassRegions({}); 
     setIsFirstTimeClient(false);
   }, []);
 
   const handleRemoveItem = useCallback((id: string) => {
-    if (id.includes("__")) {
-      setExplorationSelections((prev) => ({ ...prev, [id]: 0 }));
+    if (id.startsWith("exploration_bundle__")) {
+      const regionId = id.replace("exploration_bundle__", "");
+      setBundledRegions((prev) => ({ ...prev, [regionId]: false }));
+      setNoCompassRegions((prev) => ({ ...prev, [regionId]: false }));
+    } else if (id.includes("__")) {
+      setExplorationSelections((prev) => ({ ...prev, [id]: UNSELECTED }));
     } else if (id.startsWith("compass_")) {
       const regionId = id.replace("compass_", "");
       setNoCompassRegions((prev) => ({ ...prev, [regionId]: false }));
@@ -65,14 +86,20 @@ export default function App() {
 
   const currentCategory = CATEGORIES.find((c) => c.id === activeCategory)!;
   const serviceReceiptItems = buildReceiptItems(selections);
-  const explorationReceiptItems = buildExplorationReceiptItems(explorationSelections);
+  const explorationReceiptItems = buildExplorationReceiptItems(
+    explorationSelections,
+    bundledRegions
+  );
 
   const activeExplorationRegionIds = new Set<string>();
-  for (const [key, val] of Object.entries(explorationSelections)) {
-    if (val !== UNSELECTED && val > 0) { 
+  for (const [key, progress] of Object.entries(explorationSelections)) {
+    if (isBillableProgress(progress)) {
       const regionId = key.split("__")[0];
       activeExplorationRegionIds.add(regionId);
     }
+  }
+  for (const [regionId, selected] of Object.entries(bundledRegions)) {
+    if (selected) activeExplorationRegionIds.add(regionId);
   }
 
   const compassSurchargeItems = EXPLORATION_REGIONS
@@ -119,6 +146,8 @@ export default function App() {
             <ExplorationPanel
               selections={explorationSelections}
               onChange={handleExplorationChange}
+              bundledRegions={bundledRegions}
+              onToggleBundle={handleToggleBundle}
               noCompassRegions={noCompassRegions}
               onToggleCompass={handleToggleCompass}
             />
@@ -141,8 +170,8 @@ export default function App() {
             onRemoveItem={handleRemoveItem}
             isFirstTimeClient={isFirstTimeClient}
             onToggleFirstTimeClient={setIsFirstTimeClient}
-            /* NEW: Pass raw exploration data down for the canvas export */
             explorationSelections={explorationSelections}
+            bundledRegions={bundledRegions}
             noCompassRegions={noCompassRegions}
           />
         </div>

@@ -23,6 +23,8 @@ export interface ExplorationRegion {
 }
 
 export type ExplorationSelections = Record<string, number>;
+export type ExplorationBundles = Record<string, boolean>;
+export type ExplorationCurrency = keyof PriceData;
 
 // Rates sourced from "Exploration Calc (PHP)" / "Exploration Calc (USD)".
 // Natlan & Nod-Krai USD = PHP / 60 (the workbook only stored PHP values there).
@@ -230,8 +232,12 @@ export function findArea(regionId: string, areaId: string): SubArea | undefined 
   return region?.subAreas.find((sa) => sa.id === areaId);
 }
 
+export function isBillableProgress(currentProgress: number): boolean {
+  return currentProgress >= 0 && currentProgress < 100;
+}
+
 export function calculateAreaPrice(area: SubArea, currentProgress: number): PriceData {
-  if (currentProgress === UNSELECTED || currentProgress >= 100) {
+  if (!isBillableProgress(currentProgress)) {
     return { php: 0, usd: 0 };
   }
 
@@ -242,10 +248,28 @@ export function calculateAreaPrice(area: SubArea, currentProgress: number): Pric
   };
 }
 
+export function getRegionRate(region: ExplorationRegion, currency: ExplorationCurrency): number {
+  const total = region.subAreas.reduce((sum, area) => sum + area.pricePerPct[currency], 0);
+  return Math.round(total * 1000000) / 1000000;
+}
+
+export function getRegionBundlePrice(region: ExplorationRegion): PriceData {
+  return region.subAreas.reduce((sum, area) => {
+    const price = calculateAreaPrice(area, 0);
+    return {
+      php: Math.round((sum.php + price.php) * 100) / 100,
+      usd: Math.round((sum.usd + price.usd) * 100) / 100,
+    };
+  }, { php: 0, usd: 0 });
+}
+
 export function regionTotal(
   region: ExplorationRegion,
-  selections: ExplorationSelections
+  selections: ExplorationSelections,
+  bundledRegions: ExplorationBundles = {}
 ): PriceData {
+  if (bundledRegions[region.id]) return getRegionBundlePrice(region);
+
   return region.subAreas.reduce((sum, sa) => {
     const currentProgress = selections[`${region.id}__${sa.id}`] ?? UNSELECTED;
     const price = calculateAreaPrice(sa, currentProgress);
@@ -254,6 +278,17 @@ export function regionTotal(
       usd: sum.usd + price.usd
     };
   }, { php: 0, usd: 0 });
+}
+
+export function regionHasSelection(
+  region: ExplorationRegion,
+  selections: ExplorationSelections,
+  bundledRegions: ExplorationBundles = {}
+): boolean {
+  if (bundledRegions[region.id]) return true;
+  return region.subAreas.some((area) =>
+    isBillableProgress(selections[`${region.id}__${area.id}`] ?? UNSELECTED)
+  );
 }
 
 export function regionAvgPct(
@@ -281,17 +316,32 @@ export interface ReceiptLineItem {
 }
 
 export function buildExplorationReceiptItems(
-  selections: ExplorationSelections
+  selections: ExplorationSelections,
+  bundledRegions: ExplorationBundles = {}
 ): ReceiptLineItem[] {
   const items: ReceiptLineItem[] = [];
 
   for (const region of EXPLORATION_REGIONS) {
+    if (bundledRegions[region.id]) {
+      const price = getRegionBundlePrice(region);
+      if (price.php <= 0 && price.usd <= 0) continue;
+
+      items.push({
+        id: `exploration_bundle__${region.id}`,
+        categoryLabel: `World Exploration — ${region.name}`,
+        name: `${region.name} Full Region Bundle`,
+        detail: `100% of all ${region.subAreas.length} sub-area${region.subAreas.length !== 1 ? "s" : ""}`,
+        price,
+      });
+      continue;
+    }
+
     for (const sa of region.subAreas) {
       const currentProgress = selections[`${region.id}__${sa.id}`] ?? UNSELECTED;
-      if (currentProgress === UNSELECTED || currentProgress >= 100) continue;
+      if (!isBillableProgress(currentProgress)) continue;
 
       const price = calculateAreaPrice(sa, currentProgress);
-      if (price.php <= 0) continue;
+      if (price.php <= 0 && price.usd <= 0) continue;
 
       items.push({
         id: `${region.id}__${sa.id}`,

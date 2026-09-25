@@ -1,5 +1,9 @@
 import { useRef, useState } from "react";
-import { EXPLORATION_REGIONS, UNSELECTED } from "../data/explorationRegions";
+import {
+  EXPLORATION_REGIONS,
+  isBillableProgress,
+  type ExplorationBundles,
+} from "../data/explorationRegions";
 
 const PAYPAL_USD_TO_PHP = 60.75;
 
@@ -23,6 +27,7 @@ export function ReceiptPanel({
   isFirstTimeClient,
   onToggleFirstTimeClient,
   explorationSelections,
+  bundledRegions = {},
   noCompassRegions,
   banner = "/hero-banner.png",
 }: {
@@ -34,6 +39,7 @@ export function ReceiptPanel({
   isFirstTimeClient: boolean;
   onToggleFirstTimeClient: (val: boolean) => void;
   explorationSelections: Record<string, number>;
+  bundledRegions?: ExplorationBundles;
   noCompassRegions: Record<string, boolean>;
   banner?: string;
 }) {
@@ -65,6 +71,7 @@ export function ReceiptPanel({
         new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }),
         currency,
         explorationSelections,
+        bundledRegions,
         noCompassRegions,
         banner
       );
@@ -273,6 +280,7 @@ async function exportReceiptAsPNG(
   dateStr: string,
   currency: "PHP" | "USD",
   explorationSelections: Record<string, number>,
+  bundledRegions: ExplorationBundles,
   noCompassRegions: Record<string, boolean>,
   banner: string
 ) {
@@ -293,11 +301,11 @@ async function exportReceiptAsPNG(
 
   let hasExploration = false;
   for (const r of EXPLORATION_REGIONS) {
-     const active = r.subAreas.filter(sa => explorationSelections[`${r.id}__${sa.id}`] !== undefined && explorationSelections[`${r.id}__${sa.id}`] !== UNSELECTED);
-     if (active.length > 0) {
+     const active = r.subAreas.filter(sa => isBillableProgress(explorationSelections[`${r.id}__${sa.id}`] ?? -1));
+     if (bundledRegions[r.id] || active.length > 0) {
         hasExploration = true;
         cardH += 24 + 22;
-        cardH += active.length * 20;
+        cardH += (bundledRegions[r.id] ? 1 : active.length) * 20;
         if (noCompassRegions[r.id]) cardH += 20;
         cardH += 34;
         cardH += 16;
@@ -427,8 +435,8 @@ async function exportReceiptAsPNG(
       currentY += 24;
 
       for (const r of EXPLORATION_REGIONS) {
-          const active = r.subAreas.filter(sa => explorationSelections[`${r.id}__${sa.id}`] !== undefined && explorationSelections[`${r.id}__${sa.id}`] !== UNSELECTED);
-          if (!active.length) continue;
+          const active = r.subAreas.filter(sa => isBillableProgress(explorationSelections[`${r.id}__${sa.id}`] ?? -1));
+          if (!bundledRegions[r.id] && !active.length) continue;
 
           ctx.fillStyle = "#eef3f6";
           roundRect(ctx, leftAlign, currentY, CARD_W - PADDING*2, 24, 4);
@@ -458,7 +466,7 @@ async function exportReceiptAsPNG(
           ctx.fillText("MISSING", col3, currentY + 14);
 
           ctx.textAlign = "right";
-          ctx.fillText("RATE / 1%", col4, currentY + 14);
+          ctx.fillText("RATE / BUNDLE", col4, currentY + 14);
 
           ctx.textAlign = "right";
           ctx.fillText("TOTAL", col5, currentY + 14);
@@ -467,7 +475,34 @@ async function exportReceiptAsPNG(
 
           let regionSubtotal = 0;
 
-          for (const sa of active) {
+          if (bundledRegions[r.id]) {
+            const bundleItem = items.find(i => i.id === `exploration_bundle__${r.id}`);
+            if (bundleItem) {
+              const totalVal = currency === "PHP" ? getPhp(bundleItem.price) : getUsd(bundleItem.price);
+              regionSubtotal += totalVal;
+
+              ctx.fillStyle = "#17222c";
+              ctx.font = "600 11px sans-serif";
+              ctx.textAlign = "left";
+              ctx.fillText("Full Region Bundle", col1, currentY + 14);
+
+              ctx.fillStyle = "#5c7284";
+              ctx.font = "500 11px monospace";
+              ctx.textAlign = "center";
+              ctx.fillText("—", col2, currentY + 14);
+              ctx.fillText("100%", col3, currentY + 14);
+
+              ctx.textAlign = "right";
+              ctx.fillText("Bundle", col4, currentY + 14);
+
+              ctx.fillStyle = "#4d7a99";
+              ctx.font = "700 11px monospace";
+              ctx.fillText(currency === "PHP" ? `₱${totalVal.toLocaleString("en-PH", { minimumFractionDigits: 0 })}` : `$${totalVal.toFixed(2)}`, col5, currentY + 14);
+
+              currentY += 20;
+            }
+          } else {
+            for (const sa of active) {
               const startPct = explorationSelections[`${r.id}__${sa.id}`];
               const missingPct = 100 - startPct;
 
@@ -505,6 +540,7 @@ async function exportReceiptAsPNG(
               ctx.fillText(currency === "PHP" ? `₱${totalVal.toLocaleString("en-PH", { minimumFractionDigits: 0 })}` : `$${totalVal.toFixed(2)}`, col5, currentY + 14);
 
               currentY += 20;
+            }
           }
 
           if (noCompassRegions[r.id]) {

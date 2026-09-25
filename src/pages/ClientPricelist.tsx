@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CATEGORIES, type PriceValue, type Category } from "../data/services";
 import { HSR_CATEGORIES } from "../data/hsrServices";
-import { EXPLORATION_REGIONS, type ExplorationRegion } from "../data/explorationRegions";
+import { EXPLORATION_REGIONS, getRegionBundlePrice } from "../data/explorationRegions";
 
 function formatPrice(price: PriceValue): string {
   const php = typeof price === "object" ? price.php : price;
@@ -12,24 +12,17 @@ function formatPrice(price: PriceValue): string {
   return `₱${php.toLocaleString("en-PH")} / $${usd.toFixed(2)}`;
 }
 
-const EXPLORATION_RATES = EXPLORATION_REGIONS.map((region: ExplorationRegion) => ({
-  name: region.name,
-  tag: region.tag,
-  bundle: {
-    php:
-      Math.round(
-        region.subAreas.reduce((sum, sa) => sum + sa.pricePerPct.php * 100, 0) * 100
-      ) / 100,
-    usd:
-      Math.round(
-        region.subAreas.reduce((sum, sa) => sum + sa.pricePerPct.usd * 100, 0) * 100
-      ) / 100,
-  },
-  areas: region.subAreas.map((sa) => ({
-    name: sa.name,
-    partial: sa.pricePerPct,
-  })),
-}));
+function buildExplorationRates() {
+  return EXPLORATION_REGIONS.map((region) => ({
+    name: region.name,
+    tag: region.tag,
+    bundle: getRegionBundlePrice(region),
+    areas: region.subAreas.map((area) => ({
+      name: area.name,
+      partial: area.pricePerPct,
+    })),
+  }));
+}
 
 interface PricelistGame {
   key: "genshin" | "hsr";
@@ -87,6 +80,7 @@ function GameSwitch({ game }: { game: PricelistGame }) {
 }
 
 function PricelistPage({ game }: { game: PricelistGame }) {
+  const explorationRates = buildExplorationRates();
   const [activeCategory, setActiveCategory] = useState(game.categories[0].id);
   const category = game.categories.find((c) => c.id === activeCategory)!;
 
@@ -174,11 +168,11 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                 <div className="hidden md:flex items-center justify-between p-4" style={{ background: "#eef3f6", borderBottom: "1px solid #e2eaef" }}>
                   <div className="w-1/2 font-bold text-[12px] uppercase tracking-widest" style={{ color: "#7891a3" }}>Region</div>
                   <div className="w-1/2 flex justify-end pr-4">
-                    <div className="font-bold text-[12px] uppercase tracking-widest text-right w-24" style={{ color: "#7891a3" }}>Per 1% Progress</div>
+                    <div className="font-bold text-[12px] uppercase tracking-widest text-right w-36" style={{ color: "#7891a3" }}>100% Region Bundle</div>
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  {EXPLORATION_RATES.map((region) => (
+                  {explorationRates.map((region) => (
                     <div key={region.name} className="flex flex-col">
                       <div className="flex items-center justify-between gap-3 px-4 py-2.5" style={{ background: "#f7fafc", borderBottom: "1px solid #e2eaef" }}>
                         <div className="flex items-center gap-2 min-w-0">

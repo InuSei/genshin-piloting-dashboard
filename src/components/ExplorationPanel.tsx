@@ -3,14 +3,19 @@ import {
   EXPLORATION_REGIONS,
   regionTotal,
   regionAvgPct,
+  regionHasSelection,
+  getRegionBundlePrice,
   calculateAreaPrice,
   UNSELECTED,
+  type ExplorationBundles,
   type ExplorationSelections,
 } from "../data/explorationRegions";
 
 interface ExplorationPanelProps {
   selections: ExplorationSelections;
   onChange: (key: string, value: number) => void;
+  bundledRegions: ExplorationBundles;
+  onToggleBundle: (regionId: string) => void;
   noCompassRegions: Record<string, boolean>;
   onToggleCompass: (regionId: string) => void;
 }
@@ -18,6 +23,8 @@ interface ExplorationPanelProps {
 export function ExplorationPanel({
   selections,
   onChange,
+  bundledRegions,
+  onToggleBundle,
   noCompassRegions,
   onToggleCompass,
 }: ExplorationPanelProps) {
@@ -62,9 +69,11 @@ export function ExplorationPanel({
       <div className="flex flex-col gap-3">
         {EXPLORATION_REGIONS.map((region) => {
           const isOpen = openRegions.has(region.id);
-          const totalObj = regionTotal(region, selections);
+          const isBundleSelected = bundledRegions[region.id] ?? false;
+          const bundlePrice = getRegionBundlePrice(region);
+          const totalObj = regionTotal(region, selections, bundledRegions);
           const avgPct = regionAvgPct(region, selections);
-          const hasData = totalObj.php > 0;
+          const hasData = regionHasSelection(region, selections, bundledRegions);
           const hasNoCompass = noCompassRegions[region.id] || false;
           const finalRegionPhp = totalObj.php + (hasData && hasNoCompass ? 60 : 0);
 
@@ -119,7 +128,7 @@ export function ExplorationPanel({
                       boxShadow: "0 2px 6px rgba(77, 122, 153, 0.35)",
                     }}
                   >
-                    avg {avgPct}%
+                    {isBundleSelected ? "100% bundle" : `avg ${avgPct}%`}
                   </span>
                 )}
                 <span
@@ -138,6 +147,33 @@ export function ExplorationPanel({
 
               {isOpen && (
                 <div style={{ borderTop: "1px solid rgba(77, 122, 153, 0.12)", background: "#fbfcfd" }}>
+                  <div className="flex items-center gap-3 px-5 py-4 bg-white" style={{ borderBottom: "1px solid #e2eaef" }}>
+                    <input
+                      type="checkbox"
+                      id={`bundle-${region.id}`}
+                      checked={isBundleSelected}
+                      onChange={() => onToggleBundle(region.id)}
+                      className="w-4 h-4 rounded cursor-pointer shrink-0"
+                      style={{ accentColor: "#4d7a99" }}
+                    />
+                    <label htmlFor={`bundle-${region.id}`} className="flex-1 min-w-0 cursor-pointer select-none">
+                      <span className="block font-sans text-[13px] font-bold" style={{ color: "#17222c" }}>
+                        Full Region Bundle
+                      </span>
+                      <span className="block font-sans text-[11px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                        Select 100% remaining progress for every sub-area
+                      </span>
+                    </label>
+                    <div className="text-right shrink-0">
+                      <span className="block font-mono text-[14px] font-bold" style={{ color: isBundleSelected ? "#4d7a99" : "#5c7284" }}>
+                        ₱{bundlePrice.php.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="block font-mono text-[10px] font-semibold mt-0.5" style={{ color: "#9db0bc" }}>
+                        ${bundlePrice.usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="flex items-center px-5 py-2" style={{ background: "#eef3f6", borderBottom: "1px solid #e2eaef" }}>
                     <span className="flex-1" style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#7891a3", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       Sub-Area
@@ -153,9 +189,9 @@ export function ExplorationPanel({
                   <div className="flex flex-col py-1">
                     {region.subAreas.map((sa) => {
                       const key = `${region.id}__${sa.id}`;
-                      const pct = selections[key] ?? UNSELECTED;
+                      const pct = isBundleSelected ? 0 : selections[key] ?? UNSELECTED;
                       const priceObj = calculateAreaPrice(sa, pct);
-                      const isActive = pct !== UNSELECTED;
+                      const isActive = isBundleSelected || pct !== UNSELECTED;
 
                       return (
                         <div key={sa.id} className="flex items-center px-5 py-2.5 hover:bg-[#eef3f6] transition-colors">
@@ -171,6 +207,7 @@ export function ExplorationPanel({
                               min={0}
                               max={100}
                               step={1}
+                              disabled={isBundleSelected}
                               value={pct === UNSELECTED ? "" : pct}
                               placeholder="0"
                               onChange={(e) => {
@@ -215,7 +252,7 @@ export function ExplorationPanel({
 
                   <div className="flex items-center px-5 py-3" style={{ borderTop: "1px solid #e2eaef", background: "#eef3f6" }}>
                     <span className="flex-1" style={{ fontFamily: "'Inter', sans-serif", fontSize: "11px", fontWeight: 800, color: "#5c7284", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Region Subtotal
+                      {isBundleSelected ? "Bundle Subtotal" : "Region Subtotal"}
                     </span>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: hasData ? "#4d7a99" : "#9db0bc" }}>
                       ₱{finalRegionPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
