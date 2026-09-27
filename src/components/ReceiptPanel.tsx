@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import {
   EXPLORATION_REGIONS,
   isBillableProgress,
-  type ExplorationBundles,
 } from "../data/explorationRegions";
 
 const PAYPAL_USD_TO_PHP = 60.75;
@@ -17,6 +16,35 @@ function formatUSD(amount: number): string {
 
 function getPhp(price: any): number { return typeof price === "object" ? price.php : price; }
 function getUsd(price: any): number { return typeof price === "object" ? price.usd : price / PAYPAL_USD_TO_PHP; }
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function normalizeReceiptItems<T extends { price: any }>(items: T[]): T[] {
+  return items.map((item) => ({
+    ...item,
+    price: {
+      php: roundCurrency(getPhp(item.price)),
+      usd: roundCurrency(getUsd(item.price)),
+    },
+  }));
+}
+
+export function calculateReceiptTotals(items: any[], isFirstTimeClient: boolean) {
+  const subtotalPhp = roundCurrency(items.reduce((sum, item) => sum + getPhp(item.price), 0));
+  const subtotalUsd = roundCurrency(items.reduce((sum, item) => sum + getUsd(item.price), 0));
+  const discountPhp = isFirstTimeClient ? roundCurrency(subtotalPhp * 0.10) : 0;
+  const discountUsd = isFirstTimeClient ? roundCurrency(subtotalUsd * 0.10) : 0;
+
+  return {
+    subtotalPhp,
+    subtotalUsd,
+    discountPhp,
+    discountUsd,
+    totalPhp: roundCurrency(subtotalPhp - discountPhp),
+    totalUsd: roundCurrency(subtotalUsd - discountUsd),
+  };
+}
 
 export function ReceiptPanel({
   clientName,
@@ -27,8 +55,6 @@ export function ReceiptPanel({
   isFirstTimeClient,
   onToggleFirstTimeClient,
   explorationSelections,
-  bundledRegions = {},
-  noCompassRegions,
   banner = "/hero-banner.png",
 }: {
   clientName: string;
@@ -39,20 +65,21 @@ export function ReceiptPanel({
   isFirstTimeClient: boolean;
   onToggleFirstTimeClient: (val: boolean) => void;
   explorationSelections: Record<string, number>;
-  bundledRegions?: ExplorationBundles;
-  noCompassRegions: Record<string, boolean>;
   banner?: string;
 }) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [currency, setCurrency] = useState<"PHP" | "USD">("USD");
 
-  const subtotalPhp = items.reduce((sum, item) => sum + getPhp(item.price), 0);
-  const subtotalUsd = items.reduce((sum, item) => sum + getUsd(item.price), 0);
-  const discountPhp = isFirstTimeClient ? subtotalPhp * 0.10 : 0;
-  const discountUsd = isFirstTimeClient ? subtotalUsd * 0.10 : 0;
-  const totalPhp = subtotalPhp - discountPhp;
-  const totalUsd = subtotalUsd - discountUsd;
+  const normalizedItems = normalizeReceiptItems(items);
+  const {
+    subtotalPhp,
+    subtotalUsd,
+    discountPhp,
+    discountUsd,
+    totalPhp,
+    totalUsd,
+  } = calculateReceiptTotals(normalizedItems, isFirstTimeClient);
 
   const handleExport = async () => {
     if (items.length === 0) return;
@@ -60,7 +87,7 @@ export function ReceiptPanel({
     try {
       await exportReceiptAsPNG(
         clientName || "Client",
-        items,
+        normalizedItems,
         subtotalPhp,
         subtotalUsd,
         discountPhp,
@@ -71,8 +98,6 @@ export function ReceiptPanel({
         new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }),
         currency,
         explorationSelections,
-        bundledRegions,
-        noCompassRegions,
         banner
       );
     } catch (err) {
@@ -141,7 +166,7 @@ export function ReceiptPanel({
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
-            {groupByCategory(items).map(({ categoryLabel, services }) => (
+            {groupByCategory(normalizedItems).map(({ categoryLabel, services }) => (
               <div key={categoryLabel} className="mb-4">
                 <p className="mb-2 font-sans text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>{categoryLabel}</p>
                 {services.map((item, idx) => (
@@ -212,7 +237,9 @@ export function ReceiptPanel({
 function LineItem({ item, currency, onRemove }: { item: any; currency: "PHP" | "USD"; onRemove: () => void }) {
   const itemPhp = getPhp(item.price);
   const itemUsd = getUsd(item.price);
-  const displayPrice = currency === "PHP" ? `₱${itemPhp.toLocaleString("en-PH")}` : `$${itemUsd.toFixed(2)}`;
+  const displayPrice = currency === "PHP"
+    ? `₱${itemPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${itemUsd.toFixed(2)}`;
 
   return (
     <div className="flex items-start justify-between gap-2 py-2 group border-b border-transparent transition-colors" style={{ borderBottomColor: "transparent" }}>
@@ -267,6 +294,25 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+export function getReceiptExplorationRegions(
+  items: any[],
+  explorationSelections: Record<string, number>
+) {
+  return EXPLORATION_REGIONS.flatMap((region) => {
+    const bundleItem = items.find((item) => item.id === `exploration_bundle__${region.id}`);
+    const areaItems = region.subAreas.flatMap((subArea) => {
+      const id = `${region.id}__${subArea.id}`;
+      const item = items.find((candidate) => candidate.id === id);
+      const progress = explorationSelections[id] ?? -1;
+      return item && isBillableProgress(progress) ? [{ subArea, item, progress }] : [];
+    });
+    const compassItem = items.find((item) => item.id === `compass_${region.id}`);
+    if (!bundleItem && areaItems.length === 0 && !compassItem) return [];
+
+    return [{ region, bundleItem, areaItems, compassItem }];
+  });
+}
+
 async function exportReceiptAsPNG(
   clientName: string,
   items: any[],
@@ -280,8 +326,6 @@ async function exportReceiptAsPNG(
   dateStr: string,
   currency: "PHP" | "USD",
   explorationSelections: Record<string, number>,
-  bundledRegions: ExplorationBundles,
-  noCompassRegions: Record<string, boolean>,
   banner: string
 ) {
   const bannerImg = await loadImage(banner).catch(() => null);
@@ -295,24 +339,20 @@ async function exportReceiptAsPNG(
   const LINE_H = 38;
   const SECTION_GAP = 24;
 
-  const standardItems = items.filter(i => !i.id.includes("__") && !i.id.startsWith("compass_"));
+  const standardItems = items.filter((item) => !item.id.includes("__") && !item.id.startsWith("compass_"));
+  const explorationRegions = getReceiptExplorationRegions(items, explorationSelections);
+  const headerH = bannerImg ? BANNER_H + PADDING : PADDING * 2;
 
-  let cardH = BANNER_H + PADDING + 40 + SECTION_GAP + (standardItems.length * LINE_H);
+  let cardH = headerH + 40 + SECTION_GAP + (standardItems.length * LINE_H);
 
-  let hasExploration = false;
-  for (const r of EXPLORATION_REGIONS) {
-     const active = r.subAreas.filter(sa => isBillableProgress(explorationSelections[`${r.id}__${sa.id}`] ?? -1));
-     if (bundledRegions[r.id] || active.length > 0) {
-        hasExploration = true;
-        cardH += 24 + 22;
-        cardH += (bundledRegions[r.id] ? 1 : active.length) * 20;
-        if (noCompassRegions[r.id]) cardH += 20;
-        cardH += 34;
-        cardH += 16;
-     }
+  for (const { bundleItem, areaItems, compassItem } of explorationRegions) {
+    cardH += 24 + 22;
+    cardH += (bundleItem ? 1 : areaItems.length) * 20;
+    if (compassItem) cardH += 20;
+    cardH += 34 + 16;
   }
 
-  if (hasExploration) cardH += 40;
+  if (explorationRegions.length > 0) cardH += 40;
 
   const boxHeight = isFirstTimeClient ? 104 : 64;
   cardH += SECTION_GAP + boxHeight + 40 + PADDING;
@@ -404,7 +444,9 @@ async function exportReceiptAsPNG(
       for (const item of standardItems) {
         const itemPhp = getPhp(item.price);
         const itemUsd = getUsd(item.price);
-        const displayPrice = currency === "PHP" ? `₱${itemPhp.toLocaleString("en-PH")}` : `$${itemUsd.toFixed(2)}`;
+        const displayPrice = currency === "PHP"
+          ? `₱${itemPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : `$${itemUsd.toFixed(2)}`;
 
         ctx.textAlign = "left";
         ctx.fillStyle = "#17222c";
@@ -425,7 +467,7 @@ async function exportReceiptAsPNG(
       }
   }
 
-  if (hasExploration) {
+  if (explorationRegions.length > 0) {
       currentY += standardItems.length > 0 ? 10 : 0;
 
       ctx.fillStyle = "#17222c";
@@ -434,17 +476,14 @@ async function exportReceiptAsPNG(
       ctx.fillText("WORLD EXPLORATION BREAKDOWN", leftAlign, currentY);
       currentY += 24;
 
-      for (const r of EXPLORATION_REGIONS) {
-          const active = r.subAreas.filter(sa => isBillableProgress(explorationSelections[`${r.id}__${sa.id}`] ?? -1));
-          if (!bundledRegions[r.id] && !active.length) continue;
-
+      for (const { region, bundleItem, areaItems, compassItem } of explorationRegions) {
           ctx.fillStyle = "#eef3f6";
-          roundRect(ctx, leftAlign, currentY, CARD_W - PADDING*2, 24, 4);
+          roundRect(ctx, leftAlign, currentY, CARD_W - PADDING * 2, 24, 4);
           ctx.fill();
           ctx.fillStyle = "#17222c";
           ctx.font = "800 11px sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText(r.name.toUpperCase(), CARD_X + CARD_W/2, currentY + 16);
+          ctx.fillText(region.name.toUpperCase(), CARD_X + CARD_W / 2, currentY + 16);
           currentY += 24;
 
           const col1 = leftAlign + 8;
@@ -462,73 +501,65 @@ async function exportReceiptAsPNG(
           ctx.textAlign = "center";
           ctx.fillText("CURRENT", col2, currentY + 14);
 
-          ctx.textAlign = "center";
           ctx.fillText("MISSING", col3, currentY + 14);
 
           ctx.textAlign = "right";
           ctx.fillText("RATE / BUNDLE", col4, currentY + 14);
-
-          ctx.textAlign = "right";
           ctx.fillText("TOTAL", col5, currentY + 14);
 
           currentY += 22;
 
           let regionSubtotal = 0;
 
-          if (bundledRegions[r.id]) {
-            const bundleItem = items.find(i => i.id === `exploration_bundle__${r.id}`);
-            if (bundleItem) {
-              const totalVal = currency === "PHP" ? getPhp(bundleItem.price) : getUsd(bundleItem.price);
-              regionSubtotal += totalVal;
+          if (bundleItem) {
+            const totalVal = currency === "PHP" ? getPhp(bundleItem.price) : getUsd(bundleItem.price);
+            regionSubtotal += totalVal;
 
-              ctx.fillStyle = "#17222c";
-              ctx.font = "600 11px sans-serif";
-              ctx.textAlign = "left";
-              ctx.fillText("Full Region Bundle", col1, currentY + 14);
+            ctx.fillStyle = "#17222c";
+            ctx.font = "600 11px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("Full Region Bundle", col1, currentY + 14);
 
-              ctx.fillStyle = "#5c7284";
-              ctx.font = "500 11px monospace";
-              ctx.textAlign = "center";
-              ctx.fillText("—", col2, currentY + 14);
-              ctx.fillText("100%", col3, currentY + 14);
+            ctx.fillStyle = "#5c7284";
+            ctx.font = "500 11px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("—", col2, currentY + 14);
+            ctx.fillText("100%", col3, currentY + 14);
 
-              ctx.textAlign = "right";
-              ctx.fillText("Bundle", col4, currentY + 14);
+            ctx.textAlign = "right";
+            ctx.fillText("Bundle", col4, currentY + 14);
 
-              ctx.fillStyle = "#4d7a99";
-              ctx.font = "700 11px monospace";
-              ctx.fillText(currency === "PHP" ? `₱${totalVal.toLocaleString("en-PH", { minimumFractionDigits: 0 })}` : `$${totalVal.toFixed(2)}`, col5, currentY + 14);
+            ctx.fillStyle = "#4d7a99";
+            ctx.font = "700 11px monospace";
+            ctx.fillText(
+              currency === "PHP"
+                ? `₱${totalVal.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`
+                : `$${totalVal.toFixed(2)}`,
+              col5,
+              currentY + 14
+            );
 
-              currentY += 20;
-            }
+            currentY += 20;
           } else {
-            for (const sa of active) {
-              const startPct = explorationSelections[`${r.id}__${sa.id}`];
-              const missingPct = 100 - startPct;
-
-              const saItem = items.find(i => i.id === `${r.id}__${sa.id}`);
-              if (!saItem) continue;
-
-              const totalVal = currency === "PHP" ? getPhp(saItem.price) : getUsd(saItem.price);
+            for (const { subArea, item, progress } of areaItems) {
+              const missingPct = 100 - progress;
+              const totalVal = currency === "PHP" ? getPhp(item.price) : getUsd(item.price);
               regionSubtotal += totalVal;
 
               const displayRate = currency === "PHP"
-                  ? `₱${sa.pricePerPct.php}`
-                  : `$${sa.pricePerPct.usd.toFixed(2)}`;
+                ? `₱${subArea.pricePerPct.php}`
+                : `$${subArea.pricePerPct.usd.toFixed(2)}`;
 
               ctx.fillStyle = "#17222c";
               ctx.font = "600 11px sans-serif";
               ctx.textAlign = "left";
-              const saName = sa.name.length > 25 ? sa.name.slice(0, 25) + "…" : sa.name;
-              ctx.fillText(saName, col1, currentY + 14);
+              const areaName = subArea.name.length > 25 ? `${subArea.name.slice(0, 25)}…` : subArea.name;
+              ctx.fillText(areaName, col1, currentY + 14);
 
               ctx.font = "500 11px monospace";
               ctx.fillStyle = "#5c7284";
-
               ctx.textAlign = "center";
-              ctx.fillText(`${startPct}%`, col2, currentY + 14);
-
-              ctx.textAlign = "center";
+              ctx.fillText(`${progress}%`, col2, currentY + 14);
               ctx.fillText(`${missingPct}%`, col3, currentY + 14);
 
               ctx.textAlign = "right";
@@ -536,27 +567,32 @@ async function exportReceiptAsPNG(
 
               ctx.fillStyle = "#4d7a99";
               ctx.font = "700 11px monospace";
-              ctx.textAlign = "right";
-              ctx.fillText(currency === "PHP" ? `₱${totalVal.toLocaleString("en-PH", { minimumFractionDigits: 0 })}` : `$${totalVal.toFixed(2)}`, col5, currentY + 14);
+              ctx.fillText(
+                currency === "PHP"
+                  ? `₱${totalVal.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`
+                  : `$${totalVal.toFixed(2)}`,
+                col5,
+                currentY + 14
+              );
 
               currentY += 20;
             }
           }
 
-          if (noCompassRegions[r.id]) {
-              const surchargeVal = currency === "PHP" ? 60 : 1.60;
-              regionSubtotal += surchargeVal;
+          if (compassItem) {
+            const surchargeVal = currency === "PHP" ? 60 : 1.60;
+            regionSubtotal += surchargeVal;
 
-              ctx.fillStyle = "#b3303f";
-              ctx.font = "600 11px sans-serif";
-              ctx.textAlign = "left";
-              ctx.fillText("No Compass Surcharge", col1, currentY + 14);
+            ctx.fillStyle = "#b3303f";
+            ctx.font = "600 11px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("No Compass Surcharge", col1, currentY + 14);
 
-              ctx.textAlign = "right";
-              ctx.font = "700 11px monospace";
-              ctx.fillText(currency === "PHP" ? `+₱60` : `+$1.60`, col5, currentY + 14);
+            ctx.textAlign = "right";
+            ctx.font = "700 11px monospace";
+            ctx.fillText(currency === "PHP" ? "+₱60" : "+$1.60", col5, currentY + 14);
 
-              currentY += 20;
+            currentY += 20;
           }
 
           ctx.beginPath();
@@ -573,7 +609,13 @@ async function exportReceiptAsPNG(
           ctx.textAlign = "right";
           ctx.font = "800 12px monospace";
           ctx.fillStyle = "#4d7a99";
-          ctx.fillText(currency === "PHP" ? `₱${regionSubtotal.toLocaleString("en-PH")}` : `$${regionSubtotal.toFixed(2)}`, col5, currentY + 22);
+          ctx.fillText(
+            currency === "PHP"
+              ? `₱${regionSubtotal.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`
+              : `$${regionSubtotal.toFixed(2)}`,
+            col5,
+            currentY + 22
+          );
 
           currentY += 34;
       }

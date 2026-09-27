@@ -1,5 +1,10 @@
 export const UNSELECTED = -1;
-import { loadOverrides, type PriceOverrides } from "./priceStorage";
+import {
+  GENSHIN_STORAGE_KEY,
+  loadOverrides,
+  notifyPriceOverridesChanged,
+  type PriceOverrides,
+} from "./priceStorage";
 
 // Define exact pairs for absolute pricing control
 export interface PriceData {
@@ -20,6 +25,7 @@ export interface ExplorationRegion {
   name: string;
   tag: string;
   subAreas: SubArea[];
+  bundlePrice?: PriceData;
 }
 
 export type ExplorationSelections = Record<string, number>;
@@ -249,6 +255,8 @@ export function calculateAreaPrice(area: SubArea, currentProgress: number): Pric
 }
 
 export function getRegionBundlePrice(region: ExplorationRegion): PriceData {
+  if (region.bundlePrice) return { ...region.bundlePrice };
+
   return region.subAreas.reduce((sum, area) => {
     const price = calculateAreaPrice(area, 0);
     return {
@@ -354,7 +362,12 @@ export function buildExplorationReceiptItems(
 const DEFAULT_EXPLORATION_REGIONS: ExplorationRegion[] = JSON.parse(JSON.stringify(EXPLORATION_REGIONS));
 
 export function applyExplorationPriceOverrides(overrides: PriceOverrides): void {
+  restoreExplorationDefaults();
+
   for (const region of EXPLORATION_REGIONS) {
+    const bundleOverride = overrides.explorationBundles?.[region.id];
+    if (bundleOverride) region.bundlePrice = { ...bundleOverride };
+
     for (const sa of region.subAreas) {
       const override = overrides.explorationAreas[`${region.id}__${sa.id}`];
       if (override) sa.pricePerPct = { ...override };
@@ -363,12 +376,26 @@ export function applyExplorationPriceOverrides(overrides: PriceOverrides): void 
 }
 
 export function restoreExplorationDefaults(): void {
-  const defaultsById = new Map(DEFAULT_EXPLORATION_REGIONS.map((r) => [r.id, r]));
+  const defaultsById = new Map(DEFAULT_EXPLORATION_REGIONS.map((region) => [region.id, region]));
   for (const region of EXPLORATION_REGIONS) {
-    const d = defaultsById.get(region.id);
-    if (!d) continue;
-    region.subAreas = d.subAreas.map((sa) => ({ ...sa, pricePerPct: { ...sa.pricePerPct } }));
+    const defaults = defaultsById.get(region.id);
+    if (!defaults) continue;
+
+    const defaultsByAreaId = new Map(defaults.subAreas.map((area) => [area.id, area]));
+    for (const area of region.subAreas) {
+      const areaDefaults = defaultsByAreaId.get(area.id);
+      if (areaDefaults) area.pricePerPct = { ...areaDefaults.pricePerPct };
+    }
+    region.bundlePrice = defaults.bundlePrice ? { ...defaults.bundlePrice } : undefined;
   }
 }
 
 applyExplorationPriceOverrides(loadOverrides());
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== GENSHIN_STORAGE_KEY) return;
+    applyExplorationPriceOverrides(loadOverrides());
+    notifyPriceOverridesChanged();
+  });
+}

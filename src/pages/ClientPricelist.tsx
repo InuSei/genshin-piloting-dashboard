@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import { CATEGORIES, type PriceValue, type Category } from "../data/services";
 import { HSR_CATEGORIES } from "../data/hsrServices";
 import { EXPLORATION_REGIONS, getRegionBundlePrice } from "../data/explorationRegions";
+import {
+  getPriceRevision,
+  subscribeToPriceOverrides,
+} from "../data/priceStorage";
 
-function formatPrice(price: PriceValue): string {
+export function formatPrice(price: PriceValue): string {
   const php = typeof price === "object" ? price.php : price;
   const usd = typeof price === "object" ? price.usd : price / 60.75;
 
-  if (php === 0) return "Free";
+  if (php === 0 && usd === 0) return "Free";
   return `₱${php.toLocaleString("en-PH")} / $${usd.toFixed(2)}`;
 }
 
@@ -80,6 +84,7 @@ function GameSwitch({ game }: { game: PricelistGame }) {
 }
 
 function PricelistPage({ game }: { game: PricelistGame }) {
+  useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
   const explorationRates = buildExplorationRates();
   const [activeCategory, setActiveCategory] = useState(game.categories[0].id);
   const category = game.categories.find((c) => c.id === activeCategory)!;

@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Coins,
@@ -50,6 +51,7 @@ import {
   parseImportedOverrides,
   type PriceOverrides,
   GENSHIN_STORAGE_KEY,
+  GENSHIN_LEGACY_STORAGE_KEY,
   HSR_STORAGE_KEY,
 } from "../data/priceStorage";
 
@@ -77,7 +79,11 @@ const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
     filePrefix: "gi",
     hasExplorationRates: true,
     cloneCategories: () => JSON.parse(JSON.stringify(CATEGORIES)),
-    cloneRegions: () => JSON.parse(JSON.stringify(EXPLORATION_REGIONS)),
+    cloneRegions: () =>
+      JSON.parse(JSON.stringify(EXPLORATION_REGIONS)).map((region: ExplorationRegion) => ({
+        ...region,
+        bundlePrice: getRegionBundlePrice(region),
+      })),
     applyOverrides: (o) => {
       applyServicePriceOverrides(o);
       applyExplorationPriceOverrides(o);
@@ -123,6 +129,14 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
+export function parseCurrencyInput(raw: string): number | null {
+  const normalized = raw.trim();
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+
+  const value = Number(normalized);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 function CurrencyInput({
   value,
   onChange,
@@ -140,19 +154,12 @@ function CurrencyInput({
   }, [isEditing, value]);
 
   const commitDraft = () => {
-    const normalized = draft.trim().replaceAll(",", "");
-    if (normalized === "") {
+    const nextValue = parseCurrencyInput(draft);
+    if (nextValue === null) {
       setDraft(String(value));
-      setIsEditing(false);
-      return;
-    }
-
-    const nextValue = Number(normalized);
-    if (Number.isFinite(nextValue) && nextValue >= 0) {
+    } else {
       onChange(nextValue);
       setDraft(String(nextValue));
-    } else {
-      setDraft(String(value));
     }
     setIsEditing(false);
   };
@@ -172,10 +179,8 @@ function CurrencyInput({
           const nextDraft = event.target.value;
           setDraft(nextDraft);
           setIsEditing(true);
-          const normalized = nextDraft.trim().replaceAll(",", "");
-          if (normalized === "") return;
-          const nextValue = Number(normalized);
-          if (Number.isFinite(nextValue) && nextValue >= 0) onChange(nextValue);
+          const nextValue = parseCurrencyInput(nextDraft);
+          if (nextValue !== null) onChange(nextValue);
         }}
         onBlur={commitDraft}
         onKeyDown={(event) => {
@@ -279,7 +284,17 @@ function PriceEditorForGame({
   const [categories, setCategories] = useState<Category[]>(game.cloneCategories);
   const [regions, setRegions] = useState<ExplorationRegion[]>(game.cloneRegions);
   const [activeTab, setActiveTab] = useState<string>(game.cloneCategories()[0].id);
-  const [savedMessage, setSavedMessage] = useState("");
+  const [savedMessage, setSavedMessage] = useState(() => {
+    if (
+      game.key === "genshin" &&
+      typeof localStorage !== "undefined" &&
+      !localStorage.getItem(game.storageKey) &&
+      localStorage.getItem(GENSHIN_LEGACY_STORAGE_KEY)
+    ) {
+      return "Legacy v1 pricing was found but not loaded because its exploration formula is incompatible with the current calculator.";
+    }
+    return "";
+  });
 
   const flash = (msg: string) => {
     setSavedMessage(msg);
@@ -368,46 +383,17 @@ function PriceEditorForGame({
     value: number
   ) => {
     if (!Number.isFinite(value) || value < 0) return;
-    const targetUnits = Math.round(value * 100);
+    const nextValue = Math.round(value * 100) / 100;
 
     setRegions((prev) =>
-      prev.map((r) => {
-        if (r.id !== regionId) return r;
-
-        const weights = r.subAreas.map((area) => Math.max(0, Math.round(area.pricePerPct[sub] * 100)));
-        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-        const allocations = weights.map((weight) =>
-          totalWeight === 0
-            ? Math.floor(targetUnits / r.subAreas.length)
-            : Math.floor((targetUnits * weight) / totalWeight)
-        );
-        const allocatedUnits = allocations.reduce((sum, allocation) => sum + allocation, 0);
-        let remainingUnits = targetUnits - allocatedUnits;
-        const allocationOrder = weights
-          .map((weight, index) => ({
-            index,
-            remainder:
-              totalWeight === 0
-                ? 0
-                : (targetUnits * weight) / totalWeight - Math.floor((targetUnits * weight) / totalWeight),
-          }))
-          .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
-
-        for (const { index } of allocationOrder) {
-          if (remainingUnits <= 0) break;
-          allocations[index] += 1;
-          remainingUnits -= 1;
-        }
-
+      prev.map((region) => {
+        if (region.id !== regionId) return region;
         return {
-          ...r,
-          subAreas: r.subAreas.map((area, index) => ({
-            ...area,
-            pricePerPct: {
-              ...area.pricePerPct,
-              [sub]: allocations[index] / 100,
-            },
-          })),
+          ...region,
+          bundlePrice: {
+            ...getRegionBundlePrice(region),
+            [sub]: nextValue,
+          },
         };
       })
     );
@@ -418,6 +404,7 @@ function PriceEditorForGame({
       serviceBase: {},
       nestedItems: {},
       explorationAreas: {},
+      explorationBundles: {},
     };
     for (const c of categories) {
       for (const s of c.services) {
@@ -437,6 +424,7 @@ function PriceEditorForGame({
       }
     }
     for (const r of regions) {
+      overrides.explorationBundles[r.id] = getRegionBundlePrice(r);
       for (const sa of r.subAreas) {
         overrides.explorationAreas[`${r.id}__${sa.id}`] = sa.pricePerPct;
       }
@@ -465,16 +453,17 @@ function PriceEditorForGame({
     flash("Reset to defaults.");
   };
 
-  const handleExport = () => exportOverridesAsFile(loadOverrides(game.storageKey), game.filePrefix);
+  const handleExport = () =>
+    exportOverridesAsFile(loadOverrides(game.storageKey), game.filePrefix, game.key);
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const parsed = parseImportedOverrides(String(reader.result));
+      const parsed = parseImportedOverrides(String(reader.result), game.storageKey);
       if (!parsed) {
-        alert("That file doesn't look like a valid price export.");
+        alert("Import failed. Select a valid v2+ pricing export for this game; legacy v1 exploration pricing is not compatible.");
         return;
       }
       saveOverrides(parsed, game.storageKey);
@@ -488,6 +477,7 @@ function PriceEditorForGame({
   };
 
   const currentCategory = categories.find((c) => c.id === activeTab);
+  const savedMessageIsWarning = savedMessage.startsWith("Legacy v1");
   const tabs = [
     ...categories.map((c) => ({ id: c.id, label: c.label })),
     ...(game.hasExplorationRates ? [{ id: "exploration-rates", label: "Exploration Rates" }] : []),
@@ -497,7 +487,8 @@ function PriceEditorForGame({
   const overrideCount =
     Object.keys(savedOverrides.serviceBase).length +
     Object.keys(savedOverrides.nestedItems).length +
-    Object.keys(savedOverrides.explorationAreas).length;
+    Object.keys(savedOverrides.explorationAreas).length +
+    Object.keys(savedOverrides.explorationBundles).length;
   const totalServiceCount = categories.reduce((sum, c) => sum + c.services.length, 0);
 
   return (
@@ -610,9 +601,11 @@ function PriceEditorForGame({
         <div key={savedMessage} className="relative z-10 max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 animate-fade-up">
           <div
             className="flex items-center gap-2.5 text-[13px] font-semibold rounded-xl px-4 py-3 bg-white"
-            style={{ border: "1px solid rgba(16,185,129,0.4)", color: "#0f9d6a", boxShadow: "0 10px 30px rgba(16,185,129,0.15)" }}
+            style={savedMessageIsWarning
+              ? { border: "1px solid rgba(217,119,6,0.4)", color: "#b45309", boxShadow: "0 10px 30px rgba(217,119,6,0.12)" }
+              : { border: "1px solid rgba(16,185,129,0.4)", color: "#0f9d6a", boxShadow: "0 10px 30px rgba(16,185,129,0.15)" }}
           >
-            <CheckCircle2 size={16} />
+            {savedMessageIsWarning ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
             {savedMessage}
           </div>
         </div>
@@ -699,7 +692,7 @@ function PriceEditorForGame({
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>World Exploration — Region Bundles</h2>
                 <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
-                  Edit the full-region bundle; sub-area rates scale proportionally
+                  Edit the full-region bundle independently from the sub-area rates
                 </p>
               </div>
             </div>

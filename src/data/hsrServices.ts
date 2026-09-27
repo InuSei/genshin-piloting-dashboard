@@ -11,6 +11,7 @@
 import {
   loadOverrides,
   HSR_STORAGE_KEY,
+  notifyPriceOverridesChanged,
   type PriceOverrides,
 } from "./priceStorage";
 import type {
@@ -367,6 +368,8 @@ export function buildHsrReceiptItems(selections: ServiceSelection): ReceiptLineI
 const DEFAULT_HSR_CATEGORIES: Category[] = JSON.parse(JSON.stringify(HSR_CATEGORIES));
 
 export function applyHsrServicePriceOverrides(overrides: PriceOverrides): void {
+  restoreHsrServiceDefaults();
+
   for (const category of HSR_CATEGORIES) {
     for (const service of category.services) {
       if (service.type === "nested-list" && service.groups) {
@@ -407,3 +410,11 @@ export function restoreHsrServiceDefaults(): void {
 }
 
 applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY));
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== HSR_STORAGE_KEY) return;
+    applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY));
+    notifyPriceOverridesChanged();
+  });
+}

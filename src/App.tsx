@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { Header, GENSHIN_TABS } from "./components/Header";
 import { ServiceList } from "./components/ServiceList";
 import { ExplorationPanel } from "./components/ExplorationPanel";
@@ -16,8 +16,13 @@ import {
   type ExplorationSelections,
   UNSELECTED,
 } from "./data/explorationRegions";
+import {
+  getPriceRevision,
+  subscribeToPriceOverrides,
+} from "./data/priceStorage";
 
 export default function App() {
+  useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
   const [activeCategory, setActiveCategory] = useState<string>("maintenance");
   const [selections, setSelections] = useState<ServiceSelection>({});
   const [explorationSelections, setExplorationSelections] = useState<ExplorationSelections>({});
@@ -45,13 +50,6 @@ export default function App() {
 
   const handleToggleBundle = useCallback((regionId: string) => {
     setBundledRegions((prev) => ({ ...prev, [regionId]: !prev[regionId] }));
-    setExplorationSelections((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        if (key.startsWith(`${regionId}__`)) delete next[key];
-      }
-      return next;
-    });
   }, []);
 
   const handleToggleCompass = useCallback((regionId: string) => {
@@ -73,6 +71,13 @@ export default function App() {
     if (id.startsWith("exploration_bundle__")) {
       const regionId = id.replace("exploration_bundle__", "");
       setBundledRegions((prev) => ({ ...prev, [regionId]: false }));
+      setExplorationSelections((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.startsWith(`${regionId}__`)) delete next[key];
+        }
+        return next;
+      });
       setNoCompassRegions((prev) => ({ ...prev, [regionId]: false }));
     } else if (id.includes("__")) {
       setExplorationSelections((prev) => ({ ...prev, [id]: UNSELECTED }));
@@ -171,8 +176,6 @@ export default function App() {
             isFirstTimeClient={isFirstTimeClient}
             onToggleFirstTimeClient={setIsFirstTimeClient}
             explorationSelections={explorationSelections}
-            bundledRegions={bundledRegions}
-            noCompassRegions={noCompassRegions}
           />
         </div>
       </div>

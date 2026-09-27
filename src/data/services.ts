@@ -1,4 +1,9 @@
-import { loadOverrides, type PriceOverrides } from "./priceStorage";
+import {
+  GENSHIN_STORAGE_KEY,
+  loadOverrides,
+  notifyPriceOverridesChanged,
+  type PriceOverrides,
+} from "./priceStorage";
 export type ServiceType = "checkbox" | "quantity" | "nested-list";
 export type PriceValue = number | { php: number; usd: number };
 
@@ -697,6 +702,8 @@ export function buildReceiptItems(
 const DEFAULT_CATEGORIES: Category[] = JSON.parse(JSON.stringify(CATEGORIES));
 
 export function applyServicePriceOverrides(overrides: PriceOverrides): void {
+  restoreServiceDefaults();
+
   for (const category of CATEGORIES) {
     for (const service of category.services) {
       if (service.type === "nested-list" && service.groups) {
@@ -737,3 +744,11 @@ export function restoreServiceDefaults(): void {
 }
 
 applyServicePriceOverrides(loadOverrides());
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== GENSHIN_STORAGE_KEY) return;
+    applyServicePriceOverrides(loadOverrides());
+    notifyPriceOverridesChanged();
+  });
+}

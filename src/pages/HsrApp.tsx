@@ -1,11 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { Header, HSR_TABS } from "../components/Header";
 import { ServiceList } from "../components/ServiceList";
 import { ReceiptPanel } from "../components/ReceiptPanel";
 import { HSR_CATEGORIES, buildHsrReceiptItems } from "../data/hsrServices";
 import type { ServiceSelection } from "../data/services";
+import {
+  getPriceRevision,
+  subscribeToPriceOverrides,
+} from "../data/priceStorage";
 
 export default function HsrApp() {
+  useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
   const [activeCategory, setActiveCategory] = useState<string>(HSR_TABS[0].id);
   const [selections, setSelections] = useState<ServiceSelection>({});
   const [clientName, setClientName] = useState("");
@@ -80,7 +85,6 @@ export default function HsrApp() {
             isFirstTimeClient={isFirstTimeClient}
             onToggleFirstTimeClient={setIsFirstTimeClient}
             explorationSelections={{}}
-            noCompassRegions={{}}
             banner="/hero-banner2.png"
           />
         </div>
