@@ -184,7 +184,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                           <span className="font-extrabold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
                           <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0" style={{ color: "#9db0bc", background: "#eef3f6" }}>{region.tag}</span>
                         </div>
-                        <span className="text-[12px] font-mono font-bold shrink-0" style={{ color: "#4d7a99" }}>{formatPrice(region.bundle)}</span>
+                        <span className="text-[15px] font-mono font-bold shrink-0" style={{ color: "#4d7a99" }}>{formatPrice(region.bundle)}</span>
                       </div>
                       {region.areas.map((area, idx) => (
                         <div
@@ -198,7 +198,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                           <div className="flex justify-between md:justify-end md:w-1/2 md:gap-12 md:pr-4">
                             <div className="flex flex-col md:items-end w-24">
                               <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>Per 1%</span>
-                              <span className="text-[14px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(area.partial)}</span>
+                              <span className="text-[12px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(area.partial)}</span>
                             </div>
                           </div>
                         </div>
