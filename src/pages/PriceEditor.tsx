@@ -789,11 +789,20 @@ function PriceEditorForGame({
                               <div
                                 key={item.id}
                                 className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f7fafc]"
-                                style={{ border: "1px solid transparent" }}
+                                style={
+                                  item.isBundle
+                                    ? { background: "#eef3f6", border: "1px solid #cfdce4" }
+                                    : { border: "1px solid transparent" }
+                                }
                               >
                                 <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
                                   {item.name}
                                   {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}
+                                  {item.isBundle && (
+                                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest align-middle" style={{ color: "#4d7a99", background: "rgba(77, 122, 153, 0.12)" }}>
+                                      100% bundle
+                                    </span>
+                                  )}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0 ml-4">
                                   <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>₱</span>

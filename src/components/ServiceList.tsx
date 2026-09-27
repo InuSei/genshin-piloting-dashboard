@@ -1,4 +1,8 @@
-import type { Category, ServiceSelection } from "../data/services";
+import {
+  isActCoveredByBundle,
+  type Category,
+  type ServiceSelection,
+} from "../data/services";
 
 interface ServiceListProps {
   category: Category;
@@ -320,104 +324,181 @@ function NestedListService({
       </div>
 
       <div className="flex flex-col gap-6 pl-2">
-        {service.groups.map((group: any) => (
-          <div key={group.name} className="flex flex-col gap-3">
-            <h4 className="text-[12px] font-extrabold tracking-widest uppercase" style={{ color: "#7891a3" }}>
-              {group.name}
-            </h4>
+        {service.groups.map((group: any) => {
+          const bundleItem: any = group.items.find((item: any) => item.isBundle);
+          const actItems: any[] = group.items.filter((item: any) => !item.isBundle);
+          const isBundleSelected = bundleItem ? (selections[bundleItem.id] ?? 0) > 0 : false;
+          const bundlePhp = bundleItem
+            ? typeof bundleItem.price === "object"
+              ? bundleItem.price.php
+              : bundleItem.price
+            : 0;
 
-            <div className="flex flex-col gap-2.5 pl-4 border-l-[3px] py-1" style={{ borderColor: "#e2eaef" }}>
-              {group.items.map((item: any) => {
-                const val = selections[item.id] ?? 0;
-                const isChecked = val > 0;
-                const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
+          return (
+            <div key={group.name} className="flex flex-col gap-3">
+              <h4 className="text-[12px] font-extrabold tracking-widest uppercase" style={{ color: "#7891a3" }}>
+                {group.name}
+              </h4>
 
-                return (
+              {bundleItem && (
+                <div
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-all duration-200 hover:-translate-y-px"
+                  style={{
+                    background: isBundleSelected
+                      ? "linear-gradient(135deg, #4d7a99, #8fb8d1)"
+                      : "#f7fafc",
+                    border: isBundleSelected ? "1px solid transparent" : "1px solid #cfdce4",
+                    boxShadow: isBundleSelected ? "0 4px 14px rgba(77, 122, 153, 0.32)" : "none",
+                  }}
+                  onClick={() => onToggle(bundleItem.id)}
+                >
                   <div
-                    key={item.id}
-                    className={`flex items-center gap-4 ${!item.isQuantity ? "cursor-pointer group/item" : ""}`}
-                    onClick={() => !item.isQuantity && onToggle(item.id)}
+                    className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-300"
+                    style={
+                      isBundleSelected
+                        ? { background: "rgba(255, 255, 255, 0.22)", border: "1px solid rgba(255, 255, 255, 0.65)" }
+                        : { background: "#eef3f6", border: "2px solid #cfdce4" }
+                    }
                   >
-                    {item.isQuantity ? (
-                      <div
-                        className="flex items-center rounded-lg overflow-hidden bg-white shrink-0"
-                        style={{
-                          width: "64px",
-                          border: isChecked ? "1px solid #4d7a99" : "1px solid #cfdce4",
-                          boxShadow: isChecked ? "0 0 0 2px rgba(77,122,153,0.12)" : "none",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={val === 0 ? "" : val}
-                          placeholder="0"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === "") {
-                              onQuantityChange(item.id, 0);
-                              return;
-                            }
-                            const parsed = Math.max(0, parseInt(raw, 10) || 0);
-                            onQuantityChange(item.id, parsed);
-                          }}
-                          onFocus={(e) => e.target.select()}
-                          className="w-full text-center py-1.5"
-                          style={{
-                            fontFamily: "'JetBrains Mono', monospace",
-                            fontSize: "14px",
-                            fontWeight: 700,
-                            color: isChecked ? "#17222c" : "#7891a3",
-                            background: "transparent",
-                            border: "none",
-                            outline: "none",
-                            MozAppearance: "textfield",
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-300"
-                        style={
-                          isChecked
-                            ? {
-                                background: "linear-gradient(135deg, #4d7a99, #8fb8d1)",
-                                border: "none",
-                                boxShadow: "0 3px 8px rgba(77, 122, 153, 0.3)",
-                                transform: "scale(1.05)",
-                              }
-                            : { background: "#eef3f6", border: "2px solid #cfdce4" }
-                        }
-                      >
-                        {isChecked && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
+                    {isBundleSelected && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     )}
-
-                    <span
-                      className="flex-1 text-[14px] transition-colors"
-                      style={{ color: isChecked ? "#17222c" : "#5c7284", fontWeight: isChecked ? 700 : 500 }}
-                    >
-                      {item.name}
-                    </span>
-                    <span
-                      className="text-[14px] font-mono font-bold transition-colors"
-                      style={{ color: isChecked ? "#4d7a99" : "#9db0bc" }}
-                    >
-                      ₱{(itemPhp * (item.isQuantity && isChecked ? val : 1)).toLocaleString("en-PH")}
-                    </span>
                   </div>
-                );
-              })}
+
+                  <span
+                    className="flex-1 min-w-0 text-[14px] font-bold transition-colors"
+                    style={{ color: isBundleSelected ? "#ffffff" : "#17222c" }}
+                  >
+                    {bundleItem.name}
+                  </span>
+
+                  <span
+                    className="px-2.5 py-1 rounded-full font-mono text-[10px] font-bold uppercase tracking-wider shrink-0"
+                    style={
+                      isBundleSelected
+                        ? { background: "rgba(255, 255, 255, 0.22)", color: "#ffffff" }
+                        : {
+                            background: "rgba(77, 122, 153, 0.1)",
+                            color: "#4d7a99",
+                            border: "1px solid rgba(77, 122, 153, 0.2)",
+                          }
+                    }
+                  >
+                    100%
+                  </span>
+
+                  <span
+                    className="font-mono text-[15px] font-bold shrink-0 text-right transition-colors"
+                    style={{ color: isBundleSelected ? "#ffffff" : "#4d7a99", minWidth: "74px" }}
+                  >
+                    {formatPHP(bundlePhp)}
+                  </span>
+                </div>
+              )}
+
+              <div
+                className="flex flex-col gap-2.5 pl-4 border-l-[3px] py-1"
+                style={{ borderColor: isBundleSelected ? "#4d7a99" : "#e2eaef" }}
+              >
+                {actItems.map((item: any) => {
+                  const val = selections[item.id] ?? 0;
+                  const isChecked = val > 0;
+                  const isLocked = isActCoveredByBundle(selections, item.id);
+                  const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
+                  const isInteractive = !item.isQuantity && !isLocked;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-4 transition-opacity ${isInteractive ? "cursor-pointer group/item" : ""}`}
+                      style={{ opacity: isLocked ? 0.45 : 1 }}
+                      onClick={() => isInteractive && onToggle(item.id)}
+                    >
+                      {item.isQuantity ? (
+                        <div
+                          className="flex items-center rounded-lg overflow-hidden bg-white shrink-0"
+                          style={{
+                            width: "64px",
+                            border: isChecked ? "1px solid #4d7a99" : "1px solid #cfdce4",
+                            boxShadow: isChecked ? "0 0 0 2px rgba(77,122,153,0.12)" : "none",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={val === 0 ? "" : val}
+                            placeholder="0"
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                onQuantityChange(item.id, 0);
+                                return;
+                              }
+                              const parsed = Math.max(0, parseInt(raw, 10) || 0);
+                              onQuantityChange(item.id, parsed);
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center py-1.5"
+                            style={{
+                              fontFamily: "'JetBrains Mono', monospace",
+                              fontSize: "14px",
+                              fontWeight: 700,
+                              color: isChecked ? "#17222c" : "#7891a3",
+                              background: "transparent",
+                              border: "none",
+                              outline: "none",
+                              MozAppearance: "textfield",
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-300"
+                          style={
+                            isChecked || isLocked
+                              ? {
+                                  background: isLocked ? "#cfdce4" : "linear-gradient(135deg, #4d7a99, #8fb8d1)",
+                                  border: "none",
+                                  boxShadow: isLocked ? "none" : "0 3px 8px rgba(77, 122, 153, 0.3)",
+                                  transform: isLocked ? "none" : "scale(1.05)",
+                                }
+                              : { background: "#eef3f6", border: "2px solid #cfdce4" }
+                          }
+                        >
+                          {(isChecked || isLocked) && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+
+                      <span
+                        className="flex-1 text-[14px] transition-colors"
+                        style={{ color: isChecked || isLocked ? "#17222c" : "#5c7284", fontWeight: isChecked || isLocked ? 700 : 500 }}
+                      >
+                        {item.name}
+                      </span>
+                      <span
+                        className="text-[14px] font-mono font-bold transition-colors"
+                        style={{ color: isChecked ? "#4d7a99" : "#9db0bc" }}
+                      >
+                        {isLocked
+                          ? "—"
+                          : `₱${(itemPhp * (item.isQuantity && isChecked ? val : 1)).toLocaleString("en-PH")}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

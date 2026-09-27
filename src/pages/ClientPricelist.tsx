@@ -232,8 +232,19 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                           </h4>
                           <div className="flex flex-col gap-1.5 pt-1">
                             {group.items.map(item => (
-                              <div key={item.id} className="flex justify-between items-start gap-4 py-1">
-                                <span className="text-[13px] font-medium leading-tight" style={{ color: "#5c7284" }}>{item.name}</span>
+                              <div
+                                key={item.id}
+                                className={`flex justify-between items-start gap-4 py-1 ${item.isBundle ? "rounded-lg px-2 -mx-2" : ""}`}
+                                style={item.isBundle ? { background: "#eef3f6", border: "1px solid #cfdce4" } : undefined}
+                              >
+                                <span className="text-[13px] font-medium leading-tight" style={{ color: item.isBundle ? "#17222c" : "#5c7284" }}>
+                                  {item.name}
+                                  {item.isBundle && (
+                                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest align-middle" style={{ color: "#4d7a99", background: "rgba(77, 122, 153, 0.12)" }}>
+                                      100%
+                                    </span>
+                                  )}
+                                </span>
                                 <span className="text-[13px] font-mono font-bold shrink-0" style={{ color: "#4d7a99" }}>
                                   {formatPrice(item.price)}
                                   {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}

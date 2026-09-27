@@ -18,6 +18,7 @@ export interface NestedListItem {
   name: string;
   price: PriceData;
   isQuantity?: boolean;
+  isBundle?: boolean;
 }
 
 export interface NestedListGroup {
@@ -40,6 +41,7 @@ export interface Service {
       name: string; 
       price: PriceValue; 
       isQuantity?: boolean;
+      isBundle?: boolean;
     }[];
   }[];
 }
@@ -183,6 +185,7 @@ export const CATEGORIES: Category[] = [
           {
             name: "Nod-Krai",
             items: [
+              { id: "pr_nod_0", name: "PR: The Journey Home", price: { php: 50, usd: 0.95 } },
               { id: "aq_nod_1", name: "Act I: A Dance of Snowy Tide and Hoarfrost Groves", price: { php: 75, usd: 1.25 } },
               { id: "aq_nod_2", name: "Act II: Elegy of Dust and Lamplight", price: { php: 75, usd: 1.25 } },
               { id: "aq_nod_3", name: "Act III: A Nation That Doesn't Exist", price: { php: 75, usd: 1.25 } },
@@ -200,15 +203,17 @@ export const CATEGORIES: Category[] = [
             items: [
               { id: "aq_sne_1", name: "Act I: Everwinter Without Mercy", price: { php: 150, usd: 2.45 } },
               { id: "aq_sne_2", name: "Act II: Wraith's Nocturne", price: { php: 150, usd: 2.45 } },
+              { id: "aq_sne_3", name: "Act III: White Night, Like a Dream", price: { php: 150, usd: 2.45 } },
+              { id: "aq_sne_4", name: "Act IV: A Rekviem for the Underworld", price: { php: 150, usd: 2.45 } },
             ]
           },
           {
             name: "Interludes",
             items: [
-              { id: "aq_int_1", name: "Act I", price: { php: 60, usd: 1.00 } },
-              { id: "aq_int_2", name: "Act II", price: { php: 90, usd: 1.50 } },
-              { id: "aq_int_3", name: "Act III", price: { php: 90, usd: 1.50 } },
-              { id: "aq_int_4", name: "Act IV", price: { php: 60, usd: 1.00 } },
+              { id: "aq_int_1", name: "Act I: The Crane Returns on the Wind", price: { php: 60, usd: 1.00 } },
+              { id: "aq_int_2", name: "Act II: Perilous Trail", price: { php: 90, usd: 1.50 } },
+              { id: "aq_int_3", name: "Act II: Inversion of Genesis", price: { php: 90, usd: 1.50 } },
+              { id: "aq_int_4", name: "Act IV: Paralogism", price: { php: 60, usd: 1.00 } },
             ]
           }
         ]
@@ -340,7 +345,7 @@ export const CATEGORIES: Category[] = [
       {
         id: "story-tribe-side",
         name: "Story, Tribe & Side Quests",
-        description: "Per-quest pricing for story quests, hangouts, tribe quests, and minor quests.",
+        description: "Per-quest pricing for story quests, hangouts, and minor quests.",
         type: "nested-list",
         basePrice: 0,
         groups: [
@@ -358,12 +363,6 @@ export const CATEGORIES: Category[] = [
             ]
           },
           {
-            name: "Tribe Quests",
-            items: [
-              { id: "stq_tribe", name: "Full Tribe Quests (3 Acts) per Tribe", price: { php: 100, usd: 1.63 }, isQuantity: true },
-            ]
-          },
-          {
             name: "Minor Quests",
             items: [
               { id: "stq_minor_10", name: "Quest under 10 mins long", price: { php: 10, usd: 0.16 }, isQuantity: true },
@@ -375,15 +374,16 @@ export const CATEGORIES: Category[] = [
         ]
       },
       {
-        id: "tribal-chronicles",
-        name: "Tribal Chronicles (Natlan)",
-        description: "Individual acts for each Natlan tribe chronicle.",
+        id: "tribal-quests",
+        name: "Tribal Quests",
+        description: "Take the whole tribe at 100%, or pick only the individual acts you need.",
         type: "nested-list",
         basePrice: 0,
         groups: [
           {
             name: "People of the Spring",
             items: [
+              { id: "tc_spring_bundle", name: "Full Tribe Quests (3 Acts)", price: { php: 100, usd: 1.63 }, isBundle: true },
               { id: "tc_spring_1", name: "Act I: Those Searching for the Mysterious Island", price: { php: 35, usd: 0.58 } },
               { id: "tc_spring_2", name: "Act II: The Legend of the Mysterious Island", price: { php: 35, usd: 0.58 } },
               { id: "tc_spring_3", name: "Act III: Journey to the Mysterious Island", price: { php: 30, usd: 0.50 } },
@@ -392,6 +392,7 @@ export const CATEGORIES: Category[] = [
           {
             name: "Scions of the Canopy",
             items: [
+              { id: "tc_canopy_bundle", name: "Full Tribe Quests (3 Acts)", price: { php: 100, usd: 1.63 }, isBundle: true },
               { id: "tc_canopy_1", name: "Act I: A Mysterious Visitor From Huitztlan", price: { php: 35, usd: 0.58 } },
               { id: "tc_canopy_2", name: "Act II: A Hero's Rites", price: { php: 35, usd: 0.58 } },
               { id: "tc_canopy_3", name: "Act III: Kinich's Deal", price: { php: 30, usd: 0.50 } },
@@ -400,6 +401,7 @@ export const CATEGORIES: Category[] = [
           {
             name: "Children of Echoes",
             items: [
+              { id: "tc_echoes_bundle", name: "Full Tribe Quests (3 Acts)", price: { php: 100, usd: 1.63 }, isBundle: true },
               { id: "tc_echoes_1", name: "Act I: Melodious Chant", price: { php: 35, usd: 0.58 } },
               { id: "tc_echoes_2", name: "Act II: Tepetli Dissonance", price: { php: 35, usd: 0.58 } },
               { id: "tc_echoes_3", name: "Act III: Hoarse Echoes", price: { php: 30, usd: 0.50 } },
@@ -408,6 +410,7 @@ export const CATEGORIES: Category[] = [
           {
             name: "Flower-Feather Clan",
             items: [
+              { id: "tc_feather_bundle", name: "Full Tribe Quests (3 Acts)", price: { php: 100, usd: 1.63 }, isBundle: true },
               { id: "tc_feather_1", name: "Act I: The Wingless One of Tlalocan", price: { php: 35, usd: 0.58 } },
               { id: "tc_feather_2", name: "Act II: The Night Before the Trial", price: { php: 35, usd: 0.58 } },
               { id: "tc_feather_3", name: "Act III: Guns and Wings", price: { php: 30, usd: 0.50 } },
@@ -416,6 +419,7 @@ export const CATEGORIES: Category[] = [
           {
             name: "Masters of the Night-Wind",
             items: [
+              { id: "tc_nightwind_bundle", name: "Full Tribe Quests (3 Acts)", price: { php: 100, usd: 1.63 }, isBundle: true },
               { id: "tc_nightwind_1", name: "Act I: Calling from the Masters of the Night-Wind", price: { php: 35, usd: 0.58 } },
               { id: "tc_nightwind_2", name: "Act II: Legendary \"Color\"", price: { php: 35, usd: 0.58 } },
               { id: "tc_nightwind_3", name: "Act III: The Truth of the Battle of Seven Colors", price: { php: 30, usd: 0.50 } },
@@ -565,8 +569,8 @@ export const CATEGORIES: Category[] = [
           {
             name: "Edge of Survival",
             items: [
-              { id: "eotl_half", name: "Half Clear (6 medals)", price: { php: 250, usd: 5.00 } },
-              { id: "eotl_full", name: "Full Clear (12 medals)", price: { php: 500, usd: 10.00 } },
+              { id: "eotl_1", name: "Half Clear (10 medals)", price: { php: 350, usd: 5.75 } },
+              { id: "eotl_2", name: "Full Clear (20 medals)", price: { php: 700, usd: 11.50 } },
             ]
           },
           {
@@ -621,6 +625,50 @@ export const CATEGORIES: Category[] = [
 
 export function getCategory(id: string): Category | undefined {
   return CATEGORIES.find((c) => c.id === id);
+}
+
+const BUNDLE_TO_ACT_IDS = new Map<string, string[]>();
+const ACT_TO_BUNDLE_ID = new Map<string, string>();
+
+for (const category of CATEGORIES) {
+  for (const service of category.services) {
+    if (service.type !== "nested-list" || !service.groups) continue;
+    for (const group of service.groups) {
+      const bundleItem = group.items.find((item) => item.isBundle);
+      if (!bundleItem) continue;
+      const actIds = group.items
+        .filter((item) => item.id !== bundleItem.id)
+        .map((item) => item.id);
+      BUNDLE_TO_ACT_IDS.set(bundleItem.id, actIds);
+      for (const actId of actIds) ACT_TO_BUNDLE_ID.set(actId, bundleItem.id);
+    }
+  }
+}
+
+export function isActCoveredByBundle(
+  selections: ServiceSelection,
+  itemId: string
+): boolean {
+  const bundleId = ACT_TO_BUNDLE_ID.get(itemId);
+  return bundleId !== undefined && (selections[bundleId] ?? 0) > 0;
+}
+
+export function resolveBundleSelection(
+  selections: ServiceSelection,
+  itemId: string,
+  value: number
+): ServiceSelection {
+  const actIds = BUNDLE_TO_ACT_IDS.get(itemId);
+  if (actIds && value > 0) {
+    const next: ServiceSelection = { ...selections, [itemId]: value };
+    for (const actId of actIds) next[actId] = 0;
+    return next;
+  }
+  const bundleId = ACT_TO_BUNDLE_ID.get(itemId);
+  if (bundleId && value > 0) {
+    return { ...selections, [itemId]: value, [bundleId]: 0 };
+  }
+  return { ...selections, [itemId]: value };
 }
 
 export function calcServicePrice(

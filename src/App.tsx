@@ -6,6 +6,7 @@ import { ReceiptPanel } from "./components/ReceiptPanel";
 import {
   CATEGORIES,
   buildReceiptItems,
+  resolveBundleSelection,
   type ServiceSelection,
 } from "./data/services";
 import {
@@ -32,14 +33,13 @@ export default function App() {
   const [noCompassRegions, setNoCompassRegions] = useState<Record<string, boolean>>({});
 
   const handleToggleCheckbox = useCallback((serviceId: string) => {
-    setSelections((prev) => ({
-      ...prev,
-      [serviceId]: prev[serviceId] ? 0 : 1,
-    }));
+    setSelections((prev) =>
+      resolveBundleSelection(prev, serviceId, prev[serviceId] ? 0 : 1)
+    );
   }, []);
 
   const handleQuantityChange = useCallback((serviceId: string, value: number) => {
-    setSelections((prev) => ({ ...prev, [serviceId]: value }));
+    setSelections((prev) => resolveBundleSelection(prev, serviceId, value));
   }, []);
 
   const handleExplorationChange = useCallback((key: string, value: number) => {
