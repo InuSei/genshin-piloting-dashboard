@@ -18,6 +18,13 @@ function formatPHP(amount: number): string {
   })}`;
 }
 
+function formatItemPHP(amount: number): string {
+  return `₱${amount.toLocaleString("en-PH", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function calcPrice(
   type: "checkbox" | "quantity" | "nested-list",
   basePrice: number,
@@ -408,6 +415,7 @@ function NestedListService({
                   const isLocked = isActCoveredByBundle(selections, item.id);
                   const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
                   const isInteractive = !item.isQuantity && !isLocked;
+                  const itemMax = typeof item.max === "number" ? item.max : undefined;
 
                   return (
                     <div
@@ -429,6 +437,7 @@ function NestedListService({
                           <input
                             type="number"
                             min={0}
+                            max={itemMax}
                             step={1}
                             value={val === 0 ? "" : val}
                             placeholder="0"
@@ -440,7 +449,10 @@ function NestedListService({
                                 return;
                               }
                               const parsed = Math.max(0, parseInt(raw, 10) || 0);
-                              onQuantityChange(item.id, parsed);
+                              onQuantityChange(
+                                item.id,
+                                itemMax === undefined ? parsed : Math.min(itemMax, parsed)
+                              );
                             }}
                             onFocus={(e) => e.target.select()}
                             className="w-full text-center py-1.5"
@@ -490,7 +502,7 @@ function NestedListService({
                       >
                         {isLocked
                           ? "—"
-                          : `₱${(itemPhp * (item.isQuantity && isChecked ? val : 1)).toLocaleString("en-PH")}`}
+                          : formatItemPHP(itemPhp * (item.isQuantity && isChecked ? val : 1))}
                       </span>
                     </div>
                   );

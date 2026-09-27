@@ -19,6 +19,7 @@ export interface NestedListItem {
   price: PriceData;
   isQuantity?: boolean;
   isBundle?: boolean;
+  max?: number;
 }
 
 export interface NestedListGroup {
@@ -42,6 +43,7 @@ export interface Service {
       price: PriceValue; 
       isQuantity?: boolean;
       isBundle?: boolean;
+      max?: number;
     }[];
   }[];
 }
@@ -446,50 +448,55 @@ export const CATEGORIES: Category[] = [
             name: "Character Leveling",
             items: [
               { id: "char_lvl_p1", name: "Phase 1 (Free)", price: { php: 0, usd: 0 } },
-              { id: "char_lvl_p2", name: "Phase 2", price: { php: 10, usd: 0.20 } },
-              { id: "char_lvl_p3", name: "Phase 3", price: { php: 25, usd: 0.50 } },
-              { id: "char_lvl_p4", name: "Phase 4", price: { php: 40, usd: 0.70 } },
-              { id: "char_lvl_p5", name: "Phase 5", price: { php: 60, usd: 1.00 } },
-              { id: "char_lvl_p6", name: "Phase 6", price: { php: 100, usd: 1.70 } },
-              { id: "char_lvl_max", name: "Level 1-90 (full)", price: { php: 235, usd: 4.10 } },
+              { id: "char_lvl_p2", name: "Phase 2", price: { php: 10, usd: 0.20 }, isQuantity: true, max: 500 },
+              { id: "char_lvl_p3", name: "Phase 3", price: { php: 25, usd: 0.50 }, isQuantity: true, max: 500 },
+              { id: "char_lvl_p4", name: "Phase 4", price: { php: 40, usd: 0.70 }, isQuantity: true, max: 500 },
+              { id: "char_lvl_p5", name: "Phase 5", price: { php: 60, usd: 1.00 }, isQuantity: true, max: 500 },
+              { id: "char_lvl_p6", name: "Phase 6", price: { php: 100, usd: 1.70 }, isQuantity: true, max: 500 },
+              { id: "char_lvl_max", name: "Level 1-90 (full)", price: { php: 235, usd: 4.10 }, isQuantity: true, max: 500 },
             ]
           },
           {
             name: "Weapon Ascension",
             items: [
-              { id: "weap_asc_p1", name: "Phase 1", price: { php: 5, usd: 0.10 } },
-              { id: "weap_asc_p2", name: "Phase 2", price: { php: 15, usd: 0.26 } },
-              { id: "weap_asc_p3", name: "Phase 3", price: { php: 25, usd: 0.50 } },
-              { id: "weap_asc_p4", name: "Phase 4", price: { php: 45, usd: 0.75 } },
-              { id: "weap_asc_p5", name: "Phase 5", price: { php: 60, usd: 1.00 } },
-              { id: "weap_asc_p6", name: "Phase 6", price: { php: 120, usd: 1.95 } },
-              { id: "weap_asc_max", name: "Level 1-90 (full)", price: { php: 250, usd: 4.50 } },
+              { id: "weap_asc_p1", name: "Phase 1", price: { php: 5, usd: 0.10 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_p2", name: "Phase 2", price: { php: 15, usd: 0.26 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_p3", name: "Phase 3", price: { php: 25, usd: 0.50 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_p4", name: "Phase 4", price: { php: 45, usd: 0.75 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_p5", name: "Phase 5", price: { php: 60, usd: 1.00 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_p6", name: "Phase 6", price: { php: 120, usd: 1.95 }, isQuantity: true, max: 500 },
+              { id: "weap_asc_max", name: "Level 1-90 (full)", price: { php: 250, usd: 4.50 }, isQuantity: true, max: 500 },
             ]
           },
           {
             name: "Talent Ascension",
             items: [
-              { id: "tal_asc_2_3", name: "Talent Lvl 2 → 3", price: { php: 5, usd: 0.10 } },
-              { id: "tal_asc_3_4", name: "Talent Lvl 3 → 4", price: { php: 10, usd: 0.20 } },
-              { id: "tal_asc_4_5", name: "Talent Lvl 4 → 5", price: { php: 15, usd: 0.26 } },
-              { id: "tal_asc_5_6", name: "Talent Lvl 5 → 6", price: { php: 20, usd: 0.45 } },
-              { id: "tal_asc_6_7", name: "Talent Lvl 6 → 7", price: { php: 25, usd: 0.50 } },
-              { id: "tal_asc_7_8", name: "Talent Lvl 7 → 8", price: { php: 40, usd: 0.70 } },
-              { id: "tal_asc_8_9", name: "Talent Lvl 8 → 9", price: { php: 70, usd: 1.15 } },
-              { id: "tal_asc_9_10", name: "Talent Lvl 9 → 10", price: { php: 95, usd: 1.55 } },
+              { id: "tal_asc_2_3", name: "Talent Lvl 2 → 3", price: { php: 5, usd: 0.10 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_3_4", name: "Talent Lvl 3 → 4", price: { php: 10, usd: 0.20 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_4_5", name: "Talent Lvl 4 → 5", price: { php: 15, usd: 0.26 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_5_6", name: "Talent Lvl 5 → 6", price: { php: 20, usd: 0.45 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_6_7", name: "Talent Lvl 6 → 7", price: { php: 25, usd: 0.50 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_7_8", name: "Talent Lvl 7 → 8", price: { php: 40, usd: 0.70 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_8_9", name: "Talent Lvl 8 → 9", price: { php: 70, usd: 1.15 }, isQuantity: true, max: 500 },
+              { id: "tal_asc_9_10", name: "Talent Lvl 9 → 10", price: { php: 95, usd: 1.55 }, isQuantity: true, max: 500 },
             ]
           },
           {
-            name: "Farming & Artifacts",
+            name: "Farming Materials",
             items: [
-              { id: "farm_specialty", name: "Local Specialties (168 pcs)", price: { php: 60, usd: 1.00 } },
-              { id: "farm_boss", name: "Boss Materials (46 pcs)", price: { php: 60, usd: 1.00 } },
-              { id: "farm_ore", name: "Ore Materials (100 pcs)", price: { php: 50, usd: 0.85 } },
-              { id: "farm_wood", name: "Wood Materials (100 pcs)", price: { php: 50, usd: 0.85 } },
-              { id: "farm_crystal", name: "Crystal Core (100 pcs)", price: { php: 60, usd: 1.00 } },
-              { id: "farm_artifact_7", name: "Artifact Farming (7 days)", price: { php: 150, usd: 3.00 } },
-              { id: "farm_artifact_14", name: "Artifact Farming (14 days)", price: { php: 250, usd: 5.00 } },
-              { id: "farm_artifact_30", name: "Artifact Farming (30 days)", price: { php: 500, usd: 10.00 } },
+              { id: "farm_specialty_pc", name: "Local Specialties", price: { php: 0.36, usd: 0.006 }, isQuantity: true, max: 500 },
+              { id: "farm_boss_pc", name: "Boss Materials", price: { php: 1.3, usd: 0.0217 }, isQuantity: true, max: 500 },
+              { id: "farm_ore_pc", name: "Ore Materials", price: { php: 0.5, usd: 0.0085 }, isQuantity: true, max: 500 },
+              { id: "farm_wood_pc", name: "Wood Materials", price: { php: 0.5, usd: 0.0085 }, isQuantity: true, max: 500 },
+              { id: "farm_crystal_pc", name: "Crystal Core", price: { php: 0.6, usd: 0.01 }, isQuantity: true, max: 500 },
+            ]
+          },
+          {
+            name: "Artifacts",
+            items: [
+              { id: "farm_artifact_7", name: "7 Days", price: { php: 150, usd: 3.00 } },
+              { id: "farm_artifact_14", name: "14 Days", price: { php: 250, usd: 5.00 } },
+              { id: "farm_artifact_30", name: "30 Days", price: { php: 500, usd: 10.00 } },
             ]
           }
         ]

@@ -13,7 +13,11 @@ export function formatPrice(price: PriceValue): string {
   const usd = typeof price === "object" ? price.usd : price / 60.75;
 
   if (php === 0 && usd === 0) return "Free";
-  return `₱${php.toLocaleString("en-PH")} / $${usd.toFixed(2)}`;
+  const phpLabel = php.toLocaleString("en-PH", {
+    minimumFractionDigits: Number.isInteger(php) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `₱${phpLabel} / $${usd.toFixed(2)}`;
 }
 
 function buildExplorationRates() {

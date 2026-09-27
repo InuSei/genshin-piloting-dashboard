@@ -798,6 +798,9 @@ function PriceEditorForGame({
                                 <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
                                   {item.name}
                                   {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}
+                                  {item.isQuantity && typeof item.max === "number" && (
+                                    <span className="text-[10px] font-sans ml-1" style={{ color: "#c3d0d9" }}>· max {item.max}</span>
+                                  )}
                                   {item.isBundle && (
                                     <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest align-middle" style={{ color: "#4d7a99", background: "rgba(77, 122, 153, 0.12)" }}>
                                       100% bundle
