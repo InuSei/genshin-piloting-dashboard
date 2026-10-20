@@ -7,6 +7,49 @@ import {
 export type ServiceType = "checkbox" | "quantity" | "nested-list";
 export type PriceValue = number | { php: number; usd: number };
 
+// ---------------------------------------------------------------------------
+// Primo Hunt resource levels
+//
+// The calculator's "Resource Level" selector does NOT add a surcharge on top
+// of the base pull prices — it REPLACES the per-10-pull rate:
+//   Low  (default) = base pricing from the Primo Hunt items above
+//   Mid             = the "mid" rate below, per 10 pulls
+//   High            = the "high" rate below, per 10 pulls
+// Both rates are editable in the admin Price Editor and stored as overrides.
+// ---------------------------------------------------------------------------
+
+export const PRIMO_RESOURCE_DEFAULT_RATES: Record<string, PriceData> = {
+  mid: { php: 300, usd: 5 },
+  high: { php: 600, usd: 10 },
+};
+
+// How many 10-pull units each Primo Hunt option represents.
+export const PRIMO_PULL_UNITS: Record<string, number> = {
+  hunt_primo_10: 1,
+  hunt_primo_20: 2,
+  hunt_primo_30: 3,
+  hunt_primo_40: 4,
+  hunt_primo_50: 5,
+};
+
+// Resource level (1 = Mid, 2 = High) → storage key in the rates map.
+const PRIMO_RESOURCE_KEYS: Record<number, string> = { 1: "mid", 2: "high" };
+
+let primoResourceRates: Record<string, PriceData> = { ...PRIMO_RESOURCE_DEFAULT_RATES };
+
+export function getPrimoResourceRate(level: number): PriceData | null {
+  const key = PRIMO_RESOURCE_KEYS[level];
+  return key ? primoResourceRates[key] ?? PRIMO_RESOURCE_DEFAULT_RATES[key] ?? null : null;
+}
+
+export function applyPrimoResourceRates(overrides: PriceOverrides): void {
+  primoResourceRates = { ...PRIMO_RESOURCE_DEFAULT_RATES, ...overrides.primoResourceRates };
+}
+
+export function restorePrimoResourceDefaults(): void {
+  primoResourceRates = { ...PRIMO_RESOURCE_DEFAULT_RATES };
+}
+
 
 export interface PriceData {
   php: number;
@@ -758,6 +801,7 @@ const DEFAULT_CATEGORIES: Category[] = JSON.parse(JSON.stringify(CATEGORIES));
 
 export function applyServicePriceOverrides(overrides: PriceOverrides): void {
   restoreServiceDefaults();
+  applyPrimoResourceRates(overrides);
 
   for (const category of CATEGORIES) {
     for (const service of category.services) {
@@ -777,6 +821,7 @@ export function applyServicePriceOverrides(overrides: PriceOverrides): void {
 }
 
 export function restoreServiceDefaults(): void {
+  restorePrimoResourceDefaults();
   const defaultsById = new Map(DEFAULT_CATEGORIES.map((c) => [c.id, c]));
   for (const category of CATEGORIES) {
     const defaultCategory = defaultsById.get(category.id);

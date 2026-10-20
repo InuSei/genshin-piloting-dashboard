@@ -1,5 +1,7 @@
 import {
   isActCoveredByBundle,
+  PRIMO_PULL_UNITS,
+  getPrimoResourceRate,
   type Category,
   type ServiceSelection,
 } from "../data/services";
@@ -9,6 +11,8 @@ interface ServiceListProps {
   selections: ServiceSelection;
   onToggleCheckbox: (serviceId: string) => void;
   onQuantityChange: (serviceId: string, value: number) => void;
+  primoResourceLevel?: number;
+  onPrimoResourceChange?: (level: number) => void;
 }
 
 function formatPHP(amount: number): string {
@@ -40,6 +44,8 @@ export function ServiceList({
   selections,
   onToggleCheckbox,
   onQuantityChange,
+  primoResourceLevel,
+  onPrimoResourceChange,
 }: ServiceListProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -129,6 +135,8 @@ export function ServiceList({
                   selections={selections}
                   onToggle={onToggleCheckbox}
                   onQuantityChange={onQuantityChange}
+                  primoResourceLevel={primoResourceLevel}
+                  onPrimoResourceChange={onPrimoResourceChange}
                 />
               )}
             </div>
@@ -308,11 +316,15 @@ function NestedListService({
   selections,
   onToggle,
   onQuantityChange,
+  primoResourceLevel,
+  onPrimoResourceChange,
 }: {
   service: any;
   selections: Record<string, number>;
   onToggle: (id: string) => void;
   onQuantityChange: (id: string, value: number) => void;
+  primoResourceLevel?: number;
+  onPrimoResourceChange?: (level: number) => void;
 }) {
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -413,7 +425,13 @@ function NestedListService({
                   const val = selections[item.id] ?? 0;
                   const isChecked = val > 0;
                   const isLocked = isActCoveredByBundle(selections, item.id);
-                  const itemPhp = typeof item.price === "object" ? item.price.php : item.price;
+                  const primoUnits = PRIMO_PULL_UNITS[item.id];
+                  const primoRate = primoUnits ? getPrimoResourceRate(primoResourceLevel ?? 0) : null;
+                  const itemPhp = primoRate
+                    ? primoRate.php * primoUnits
+                    : typeof item.price === "object"
+                      ? item.price.php
+                      : item.price;
                   const isInteractive = !item.isQuantity && !isLocked;
                   const itemMax = typeof item.max === "number" ? item.max : undefined;
 
@@ -508,6 +526,46 @@ function NestedListService({
                   );
                 })}
               </div>
+              {Array.isArray(group?.items) && group.items.some((i: any) => String(i?.id || "").startsWith("hunt_primo_")) && (
+                <div className="flex flex-col gap-2.5 px-4 py-3 border-t" style={{ borderColor: "#e2eaef" }}>
+                  <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#7891a3" }}>
+                    Resource Level
+                  </div>
+                  <div className="text-[11px] font-medium" style={{ color: "#9db0bc" }}>
+                    Mid / High replace the pull prices above with a flat rate per 10 pulls.
+                  </div>
+                  {[
+                    { level: 0, label: "Low (Low exploration / High resource)", price: "Base pricing" },
+                    {
+                      level: 1,
+                      label: "Mid (Mid exploration / Mid resource)",
+                      price: `${formatItemPHP(getPrimoResourceRate(1)?.php ?? 0)} / $${(getPrimoResourceRate(1)?.usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} per 10 pulls`,
+                    },
+                    {
+                      level: 2,
+                      label: "High (High exploration / Low resource)",
+                      price: `${formatItemPHP(getPrimoResourceRate(2)?.php ?? 0)} / $${(getPrimoResourceRate(2)?.usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} per 10 pulls`,
+                    },
+                  ].map((opt) => (
+                    <label key={opt.level} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="primo-resource-level"
+                        checked={(primoResourceLevel ?? 0) === opt.level}
+                        onChange={() => onPrimoResourceChange && onPrimoResourceChange(opt.level)}
+                        className="w-4 h-4"
+                        style={{ accentColor: "#4d7a99" }}
+                      />
+                      <span className="flex-1 text-[13px] font-medium" style={{ color: "#5c7284" }}>
+                        {opt.label}
+                      </span>
+                      <span className="font-mono text-[12px] font-bold" style={{ color: "#4d7a99" }}>
+                        {opt.price}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

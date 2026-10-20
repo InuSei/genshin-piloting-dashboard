@@ -8,6 +8,10 @@ export interface PriceOverrides {
   nestedItems: Record<string, StoredPrice>;
   explorationAreas: Record<string, StoredPrice>;
   explorationBundles: Record<string, StoredPrice>;
+  // Primo Hunt resource-level rates ("mid" / "high"), priced per 10 pulls.
+  // When a resource level is active it REPLACES the base pull pricing
+  // instead of adding a surcharge on top of it.
+  primoResourceRates: Record<string, StoredPrice>;
 }
 
 export type PriceGame = "genshin" | "hsr";
@@ -22,14 +26,14 @@ export const GENSHIN_LEGACY_STORAGE_KEY = "suino_price_overrides_v1";
 export const HSR_STORAGE_KEY = "suino_price_overrides_hsr";
 
 const SCHEMA_VERSION = 2;
-const OVERRIDE_KEYS = new Set(["serviceBase", "nestedItems", "explorationAreas", "explorationBundles"]);
+const OVERRIDE_KEYS = new Set(["serviceBase", "nestedItems", "explorationAreas", "explorationBundles", "primoResourceRates"]);
 const FILE_KEYS = new Set([...OVERRIDE_KEYS, "schemaVersion", "game"]);
 const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const priceListeners = new Set<() => void>();
 let priceRevision = 0;
 
 function emptyOverrides(): PriceOverrides {
-  return { serviceBase: {}, nestedItems: {}, explorationAreas: {}, explorationBundles: {} };
+  return { serviceBase: {}, nestedItems: {}, explorationAreas: {}, explorationBundles: {}, primoResourceRates: {} };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -82,9 +86,10 @@ function normalizeOverrides(value: unknown, storageKey: string): PriceOverrides 
   const nestedItems = parsePriceMap(value.nestedItems);
   const explorationAreas = parsePriceMap(value.explorationAreas);
   const explorationBundles = parsePriceMap(value.explorationBundles);
-  if (!serviceBase || !nestedItems || !explorationAreas || !explorationBundles) return null;
+  const primoResourceRates = parsePriceMap(value.primoResourceRates);
+  if (!serviceBase || !nestedItems || !explorationAreas || !explorationBundles || !primoResourceRates) return null;
 
-  return { serviceBase, nestedItems, explorationAreas, explorationBundles };
+  return { serviceBase, nestedItems, explorationAreas, explorationBundles, primoResourceRates };
 }
 
 function storedFile(overrides: PriceOverrides, game: PriceGame): StoredOverridesFile {

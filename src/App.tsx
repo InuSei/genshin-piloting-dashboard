@@ -7,6 +7,8 @@ import {
   CATEGORIES,
   buildReceiptItems,
   resolveBundleSelection,
+  PRIMO_PULL_UNITS,
+  getPrimoResourceRate,
   type ServiceSelection,
 } from "./data/services";
 import {
@@ -31,7 +33,7 @@ export default function App() {
   const [clientName, setClientName] = useState("");
   const [isFirstTimeClient, setIsFirstTimeClient] = useState<boolean>(false);
   const [noCompassRegions, setNoCompassRegions] = useState<Record<string, boolean>>({});
-
+  const [primoResourceLevel, setPrimoResourceLevel] = useState<number>(0);
   const handleToggleCheckbox = useCallback((serviceId: string) => {
     setSelections((prev) =>
       resolveBundleSelection(prev, serviceId, prev[serviceId] ? 0 : 1)
@@ -59,13 +61,16 @@ export default function App() {
     }));
   }, []);
 
+  const handlePrimoResourceChange = useCallback((level: number) => {
+    setPrimoResourceLevel(level);
+  }, []);
   const handleClearAll = useCallback(() => {
     setSelections({});
     setExplorationSelections({});
     setBundledRegions({});
-    setNoCompassRegions({}); 
-    setIsFirstTimeClient(false);
-  }, []);
+    setNoCompassRegions({});
+    setPrimoResourceLevel(0);
+    setIsFirstTimeClient(false);  }, []);
 
   const handleRemoveItem = useCallback((id: string) => {
     if (id.startsWith("exploration_bundle__")) {
@@ -117,7 +122,29 @@ export default function App() {
       price: { php: 60, usd: 1.60 },
     }));
 
-  const receiptItems = [...serviceReceiptItems, ...explorationReceiptItems, ...compassSurchargeItems];
+  // Resource level REPLACES the per-10-pull rate for Primo Hunt items
+  // (Mid / High) instead of adding a surcharge on top of base pricing.
+  const PRIMO_RESOURCE_LABELS: Record<number, string> = {
+    1: "Mid Resource",
+    2: "High Resource",
+  };
+  const primoResourceLabel = PRIMO_RESOURCE_LABELS[primoResourceLevel];
+  const primoResourceRate = getPrimoResourceRate(primoResourceLevel);
+
+  const serviceReceiptItemsWithResourceRate =
+    primoResourceLabel && primoResourceRate
+      ? serviceReceiptItems.map((item) => {
+          const units = PRIMO_PULL_UNITS[item.id];
+          if (!units) return item;
+          return {
+            ...item,
+            detail: `${primoResourceLabel} rate — ${units} × 10 pulls`,
+            price: { php: primoResourceRate.php * units, usd: primoResourceRate.usd * units },
+          };
+        })
+      : serviceReceiptItems;
+
+  const receiptItems = [...serviceReceiptItemsWithResourceRate, ...explorationReceiptItems, ...compassSurchargeItems];
   const cartCount = receiptItems.length;
 
   return (
@@ -162,6 +189,8 @@ export default function App() {
               selections={selections}
               onToggleCheckbox={handleToggleCheckbox}
               onQuantityChange={handleQuantityChange}
+              primoResourceLevel={primoResourceLevel}
+              onPrimoResourceChange={handlePrimoResourceChange}
             />
           )}
         </main>

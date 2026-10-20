@@ -28,6 +28,7 @@ import {
   CATEGORIES,
   applyServicePriceOverrides,
   restoreServiceDefaults,
+  PRIMO_RESOURCE_DEFAULT_RATES,
   type Category,
 } from "../data/services";
 import {
@@ -64,6 +65,7 @@ interface EditorGameConfig {
   storageKey: string;
   filePrefix: string;
   hasExplorationRates: boolean;
+  hasPrimoRates: boolean;
   cloneCategories: () => Category[];
   cloneRegions: () => ExplorationRegion[];
   applyOverrides: (o: PriceOverrides) => void;
@@ -78,6 +80,7 @@ const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
     storageKey: GENSHIN_STORAGE_KEY,
     filePrefix: "gi",
     hasExplorationRates: true,
+    hasPrimoRates: true,
     cloneCategories: () => JSON.parse(JSON.stringify(CATEGORIES)),
     cloneRegions: () =>
       JSON.parse(JSON.stringify(EXPLORATION_REGIONS)).map((region: ExplorationRegion) => ({
@@ -100,6 +103,7 @@ const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
     storageKey: HSR_STORAGE_KEY,
     filePrefix: "hsr",
     hasExplorationRates: false,
+    hasPrimoRates: false,
     cloneCategories: () => JSON.parse(JSON.stringify(HSR_CATEGORIES)),
     cloneRegions: () => [],
     applyOverrides: (o) => {
@@ -283,6 +287,10 @@ function PriceEditorForGame({
 }) {
   const [categories, setCategories] = useState<Category[]>(game.cloneCategories);
   const [regions, setRegions] = useState<ExplorationRegion[]>(game.cloneRegions);
+  const [primoRates, setPrimoRates] = useState<Record<string, { php: number; usd: number }>>(() => ({
+    ...PRIMO_RESOURCE_DEFAULT_RATES,
+    ...loadOverrides(game.storageKey).primoResourceRates,
+  }));
   const [activeTab, setActiveTab] = useState<string>(game.cloneCategories()[0].id);
   const [savedMessage, setSavedMessage] = useState(() => {
     if (
@@ -399,12 +407,20 @@ function PriceEditorForGame({
     );
   };
 
+  const updatePrimoRate = (key: string, sub: "php" | "usd", value: number) => {
+    setPrimoRates((prev) => ({
+      ...prev,
+      [key]: { ...PRIMO_RESOURCE_DEFAULT_RATES[key], ...prev[key], [sub]: value },
+    }));
+  };
+
   const buildOverridesFromState = (): PriceOverrides => {
     const overrides: PriceOverrides = {
       serviceBase: {},
       nestedItems: {},
       explorationAreas: {},
       explorationBundles: {},
+      primoResourceRates: {},
     };
     for (const c of categories) {
       for (const s of c.services) {
@@ -429,6 +445,11 @@ function PriceEditorForGame({
         overrides.explorationAreas[`${r.id}__${sa.id}`] = sa.pricePerPct;
       }
     }
+    if (game.hasPrimoRates) {
+      for (const [key, rate] of Object.entries(primoRates)) {
+        overrides.primoResourceRates[key] = rate;
+      }
+    }
     return overrides;
   };
 
@@ -450,6 +471,7 @@ function PriceEditorForGame({
     game.restoreDefaults();
     setCategories(game.cloneCategories());
     setRegions(game.cloneRegions());
+    setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES });
     flash("Reset to defaults.");
   };
 
@@ -470,6 +492,7 @@ function PriceEditorForGame({
       game.applyOverrides(parsed);
       setCategories(game.cloneCategories());
       setRegions(game.cloneRegions());
+      setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES, ...parsed.primoResourceRates });
       flash("Import applied.");
     };
     reader.readAsText(file);
@@ -481,6 +504,7 @@ function PriceEditorForGame({
   const tabs = [
     ...categories.map((c) => ({ id: c.id, label: c.label })),
     ...(game.hasExplorationRates ? [{ id: "exploration-rates", label: "Exploration Rates" }] : []),
+    ...(game.hasPrimoRates ? [{ id: "primo-resource-rates", label: "Primo Resource Rates" }] : []),
   ];
 
   const savedOverrides = loadOverrides(game.storageKey);
@@ -488,7 +512,8 @@ function PriceEditorForGame({
     Object.keys(savedOverrides.serviceBase).length +
     Object.keys(savedOverrides.nestedItems).length +
     Object.keys(savedOverrides.explorationAreas).length +
-    Object.keys(savedOverrides.explorationBundles).length;
+    Object.keys(savedOverrides.explorationBundles).length +
+    Object.keys(savedOverrides.primoResourceRates).length;
   const totalServiceCount = categories.reduce((sum, c) => sum + c.services.length, 0);
 
   return (
@@ -623,7 +648,58 @@ function PriceEditorForGame({
           <StatCard icon={<Coins size={16} />} label="Saved Overrides" value={overrideCount} highlight={overrideCount > 0} />
         </div>
 
-        {game.hasExplorationRates && activeTab === "exploration-rates" ? (
+        {game.hasPrimoRates && activeTab === "primo-resource-rates" ? (
+          <section key="primo-resource-rates" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
+            <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
+                <Coins size={16} style={{ color: "#4d7a99" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Primo Hunt — Resource Level Rates</h2>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                  Flat rate per 10 pulls — when a resource level is selected it replaces the base pull pricing (Low = base pricing)
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+            >
+              <span>Resource Level</span>
+              <span className="text-right">Rate per 10 pulls</span>
+            </div>
+
+            <div className="flex flex-col">
+              {[
+                { key: "mid", label: "Mid (Mid exploration / Mid resource)" },
+                { key: "high", label: "High (High exploration / Low resource)" },
+              ].map((row, ri) => {
+                const rate = primoRates[row.key] ?? PRIMO_RESOURCE_DEFAULT_RATES[row.key];
+                return (
+                  <div
+                    key={row.key}
+                    className={`flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-5 py-4 ${ri !== 1 ? "border-b" : ""} hover:bg-[#f7fafc] transition-colors`}
+                    style={{ borderColor: "#eef3f6" }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 md:flex-1 shrink-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
+                      <span className="font-bold text-[14px] truncate" style={{ color: "#17222c" }}>{row.label}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
+                      <RatePair
+                        valuePhp={rate.php}
+                        valueUsd={rate.usd}
+                        onPhp={(v) => updatePrimoRate(row.key, "php", v)}
+                        onUsd={(v) => updatePrimoRate(row.key, "usd", v)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : game.hasExplorationRates && activeTab === "exploration-rates" ? (
           <section key="exploration-rates" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
             <div className="flex items-center gap-3 px-5 py-4" style={{ background: "linear-gradient(180deg, #f7fafc, #f0f5f9)", borderBottom: "1px solid #e2eaef" }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
