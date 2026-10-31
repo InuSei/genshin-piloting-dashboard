@@ -76,7 +76,7 @@ function gameForStorageKey(storageKey: string): PriceGame {
   return storageKey === HSR_STORAGE_KEY ? "hsr" : "genshin";
 }
 
-function normalizeOverrides(value: unknown, storageKey: string): PriceOverrides | null {
+export function normalizeOverrides(value: unknown, storageKey: string): PriceOverrides | null {
   if (!isRecord(value)) return null;
   if (Object.keys(value).some((key) => !FILE_KEYS.has(key))) return null;
   if (value.schemaVersion !== undefined && value.schemaVersion !== SCHEMA_VERSION) return null;
@@ -100,26 +100,45 @@ function storedFile(overrides: PriceOverrides, game: PriceGame): StoredOverrides
   };
 }
 
-export function loadOverrides(storageKey: string = GENSHIN_STORAGE_KEY): PriceOverrides {
+// Shared prices from the server (api/prices.ts), loaded once at startup.
+const sharedOverrides: Record<PriceGame, PriceOverrides> = { genshin: emptyOverrides(), hsr: emptyOverrides() };
+
+// On failure the hardcoded default prices stay in place.
+export async function fetchOverrides(): Promise<void> {
   try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return emptyOverrides();
-    return normalizeOverrides(JSON.parse(raw), storageKey) ?? emptyOverrides();
-  } catch {
-    return emptyOverrides();
+    const res = await fetch("/api/prices", { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data: unknown = await res.json();
+    if (!isRecord(data)) throw new Error("Malformed response");
+    sharedOverrides.genshin = normalizeOverrides(data.genshin ?? {}, GENSHIN_STORAGE_KEY) ?? emptyOverrides();
+    sharedOverrides.hsr = normalizeOverrides(data.hsr ?? {}, HSR_STORAGE_KEY) ?? emptyOverrides();
+    notifyPriceOverridesChanged();
+  } catch (error) {
+    console.error("Could not load shared prices; showing defaults.", error);
   }
 }
 
-export function saveOverrides(overrides: PriceOverrides, storageKey: string = GENSHIN_STORAGE_KEY): void {
+export function loadOverrides(storageKey: string = GENSHIN_STORAGE_KEY): PriceOverrides {
+  return sharedOverrides[gameForStorageKey(storageKey)];
+}
+
+export async function saveOverrides(overrides: PriceOverrides, storageKey: string = GENSHIN_STORAGE_KEY): Promise<void> {
+  const game = gameForStorageKey(storageKey);
   const normalized = normalizeOverrides(overrides, storageKey);
   if (!normalized) throw new Error("Invalid price overrides");
-  localStorage.setItem(storageKey, JSON.stringify(storedFile(normalized, gameForStorageKey(storageKey))));
+  // Under /admin/ so the browser reuses the admin page's Basic auth login.
+  const res = await fetch("/admin/api/prices", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ game, overrides: normalized }),
+  });
+  if (!res.ok) throw new Error(`Saving prices failed (HTTP ${res.status})`);
+  sharedOverrides[game] = normalized;
   notifyPriceOverridesChanged();
 }
 
-export function clearOverrides(storageKey: string = GENSHIN_STORAGE_KEY): void {
-  localStorage.removeItem(storageKey);
-  notifyPriceOverridesChanged();
+export function clearOverrides(storageKey: string = GENSHIN_STORAGE_KEY): Promise<void> {
+  return saveOverrides(emptyOverrides(), storageKey);
 }
 
 export function exportOverridesAsFile(

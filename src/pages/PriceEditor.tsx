@@ -2,7 +2,7 @@
 //
 // Private admin page for editing prices. Not linked from anywhere by
 // default — reach it directly at /admin/prices. Edits are staged locally
-// until you hit "Save All", which persists them to localStorage and
+// until you hit "Save All", which saves them to the server (api/prices.ts) and
 // applies them live to the running app.
 //
 // Supports both games we service: Genshin Impact (per-1% exploration) and
@@ -453,21 +453,34 @@ function PriceEditorForGame({
     return overrides;
   };
 
-  const handleSaveAll = () => {
+  const alertSaveFailed = (error: unknown) =>
+    alert(`${error instanceof Error ? error.message : "Saving prices failed"}. Nothing was changed on the live site; please try again.`);
+
+  const handleSaveAll = async () => {
     const overrides = buildOverridesFromState();
-    saveOverrides(overrides, game.storageKey);
+    try {
+      await saveOverrides(overrides, game.storageKey);
+    } catch (error) {
+      alertSaveFailed(error);
+      return;
+    }
     game.applyOverrides(overrides);
     flash(`Saved! ${game.label} changes are live on the dashboard and pricelist.`);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (
       !confirm(
         `Reset ALL ${game.label} prices back to the original defaults? This clears your saved edits.`
       )
     )
       return;
-    clearOverrides(game.storageKey);
+    try {
+      await clearOverrides(game.storageKey);
+    } catch (error) {
+      alertSaveFailed(error);
+      return;
+    }
     game.restoreDefaults();
     setCategories(game.cloneCategories());
     setRegions(game.cloneRegions());
@@ -482,13 +495,18 @@ function PriceEditorForGame({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const parsed = parseImportedOverrides(String(reader.result), game.storageKey);
       if (!parsed) {
         alert("Import failed. Select a valid v2+ pricing export for this game; legacy v1 exploration pricing is not compatible.");
         return;
       }
-      saveOverrides(parsed, game.storageKey);
+      try {
+        await saveOverrides(parsed, game.storageKey);
+      } catch (error) {
+        alertSaveFailed(error);
+        return;
+      }
       game.applyOverrides(parsed);
       setCategories(game.cloneCategories());
       setRegions(game.cloneRegions());

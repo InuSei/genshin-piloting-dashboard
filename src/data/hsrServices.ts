@@ -3,7 +3,7 @@
 // Honkai: Star Rail — the second game we service. Follows the same
 // Category/Service shapes as the Genshin data (src/data/services.ts) so the
 // dashboard and pricelist components can be reused, but keeps its own
-// localStorage override key so editors never clash.
+// price override key so editors never clash.
 //
 // Unlike Genshin, there is no per-% exploration pricing: planets are flat
 // 100% bundles and there is no compass surcharge.
@@ -11,7 +11,7 @@
 import {
   loadOverrides,
   HSR_STORAGE_KEY,
-  notifyPriceOverridesChanged,
+  subscribeToPriceOverrides,
   type PriceOverrides,
 } from "./priceStorage";
 import type {
@@ -411,10 +411,4 @@ export function restoreHsrServiceDefaults(): void {
 
 applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY));
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== HSR_STORAGE_KEY) return;
-    applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY));
-    notifyPriceOverridesChanged();
-  });
-}
+subscribeToPriceOverrides(() => applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY)));

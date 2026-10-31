@@ -1,8 +1,7 @@
 export const UNSELECTED = -1;
 import {
-  GENSHIN_STORAGE_KEY,
   loadOverrides,
-  notifyPriceOverridesChanged,
+  subscribeToPriceOverrides,
   type PriceOverrides,
 } from "./priceStorage";
 
@@ -392,10 +391,4 @@ export function restoreExplorationDefaults(): void {
 
 applyExplorationPriceOverrides(loadOverrides());
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== GENSHIN_STORAGE_KEY) return;
-    applyExplorationPriceOverrides(loadOverrides());
-    notifyPriceOverridesChanged();
-  });
-}
+subscribeToPriceOverrides(() => applyExplorationPriceOverrides(loadOverrides()));

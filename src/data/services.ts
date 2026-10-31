@@ -1,7 +1,6 @@
 import {
-  GENSHIN_STORAGE_KEY,
   loadOverrides,
-  notifyPriceOverridesChanged,
+  subscribeToPriceOverrides,
   type PriceOverrides,
 } from "./priceStorage";
 export type ServiceType = "checkbox" | "quantity" | "nested-list";
@@ -845,10 +844,4 @@ export function restoreServiceDefaults(): void {
 
 applyServicePriceOverrides(loadOverrides());
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== GENSHIN_STORAGE_KEY) return;
-    applyServicePriceOverrides(loadOverrides());
-    notifyPriceOverridesChanged();
-  });
-}
+subscribeToPriceOverrides(() => applyServicePriceOverrides(loadOverrides()));

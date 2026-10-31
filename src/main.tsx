@@ -5,9 +5,11 @@ import { PriceEditor } from './pages/PriceEditor.tsx'
 import App from './App.tsx'
 import HsrApp from './pages/HsrApp.tsx'
 import { GenshinPricelist, HsrPricelist } from './pages/ClientPricelist.tsx'
+import { fetchOverrides } from './data/priceStorage'
 import './styles/index.css'
 
-createRoot(document.getElementById('root')!).render(
+// Wait for the shared prices so nobody sees the defaults flash first.
+fetchOverrides().then(() => createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
@@ -24,4 +26,4 @@ createRoot(document.getElementById('root')!).render(
       </Routes>
     </BrowserRouter>
   </StrictMode>,
-)
+))
