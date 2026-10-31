@@ -1,4 +1,5 @@
-// Shared by middleware.ts (admin page) and api/prices.ts (price saves).
+// Same check as middleware.ts — keep them in sync. The middleware keeps its own
+// copy: importing this file there coincided with /admin/prices returning 500 on Vercel.
 // The leading underscore keeps Vercel from turning this file into a route.
 
 export function isAdmin(request: Request): boolean {
