@@ -1,5 +1,6 @@
 export const UNSELECTED = -1;
 import {
+  loadCatalog,
   loadOverrides,
   subscribeToPriceOverrides,
   type PriceOverrides,
@@ -363,35 +364,29 @@ export function buildExplorationReceiptItems(
 
 const DEFAULT_EXPLORATION_REGIONS: ExplorationRegion[] = JSON.parse(JSON.stringify(EXPLORATION_REGIONS));
 
-export function applyExplorationPriceOverrides(overrides: PriceOverrides): void {
-  restoreExplorationDefaults();
-
-  for (const region of EXPLORATION_REGIONS) {
+// Built-in regions with older price-only overrides applied.
+export function buildRegions(overrides: PriceOverrides): ExplorationRegion[] {
+  const regions: ExplorationRegion[] = JSON.parse(JSON.stringify(DEFAULT_EXPLORATION_REGIONS));
+  for (const region of regions) {
     const bundleOverride = overrides.explorationBundles?.[region.id];
     if (bundleOverride) region.bundlePrice = { ...bundleOverride };
-
     for (const sa of region.subAreas) {
       const override = overrides.explorationAreas[`${region.id}__${sa.id}`];
       if (override) sa.pricePerPct = { ...override };
     }
   }
+  return regions;
 }
 
-export function restoreExplorationDefaults(): void {
-  const defaultsById = new Map(DEFAULT_EXPLORATION_REGIONS.map((region) => [region.id, region]));
-  for (const region of EXPLORATION_REGIONS) {
-    const defaults = defaultsById.get(region.id);
-    if (!defaults) continue;
-
-    const defaultsByAreaId = new Map(defaults.subAreas.map((area) => [area.id, area]));
-    for (const area of region.subAreas) {
-      const areaDefaults = defaultsByAreaId.get(area.id);
-      if (areaDefaults) area.pricePerPct = { ...areaDefaults.pricePerPct };
-    }
-    region.bundlePrice = defaults.bundlePrice ? { ...defaults.bundlePrice } : undefined;
-  }
+// Swap the live list in place so every page that reads EXPLORATION_REGIONS sees the change.
+function applyExplorationRegions(): void {
+  const catalog = loadCatalog("genshin");
+  const next: ExplorationRegion[] = catalog
+    ? JSON.parse(JSON.stringify(catalog.regions))
+    : buildRegions(loadOverrides());
+  EXPLORATION_REGIONS.splice(0, EXPLORATION_REGIONS.length, ...next);
 }
 
-applyExplorationPriceOverrides(loadOverrides());
+applyExplorationRegions();
 
-subscribeToPriceOverrides(() => applyExplorationPriceOverrides(loadOverrides()));
+subscribeToPriceOverrides(applyExplorationRegions);

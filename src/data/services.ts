@@ -1,4 +1,5 @@
 import {
+  loadCatalog,
   loadOverrides,
   subscribeToPriceOverrides,
   type PriceOverrides,
@@ -41,12 +42,8 @@ export function getPrimoResourceRate(level: number): PriceData | null {
   return key ? primoResourceRates[key] ?? PRIMO_RESOURCE_DEFAULT_RATES[key] ?? null : null;
 }
 
-export function applyPrimoResourceRates(overrides: PriceOverrides): void {
-  primoResourceRates = { ...PRIMO_RESOURCE_DEFAULT_RATES, ...overrides.primoResourceRates };
-}
-
-export function restorePrimoResourceDefaults(): void {
-  primoResourceRates = { ...PRIMO_RESOURCE_DEFAULT_RATES };
+export function getPrimoResourceRates(): Record<string, PriceData> {
+  return { ...primoResourceRates };
 }
 
 
@@ -800,50 +797,36 @@ export function buildReceiptItems(
 
 const DEFAULT_CATEGORIES: Category[] = JSON.parse(JSON.stringify(CATEGORIES));
 
-export function applyServicePriceOverrides(overrides: PriceOverrides): void {
-  restoreServiceDefaults();
-  applyPrimoResourceRates(overrides);
-
-  for (const category of CATEGORIES) {
+// Built-in services with older price-only overrides applied.
+export function buildCategories(overrides: PriceOverrides): Category[] {
+  const categories: Category[] = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+  for (const category of categories) {
     for (const service of category.services) {
-      if (service.type === "nested-list" && service.groups) {
-        for (const group of service.groups) {
-          for (const item of group.items) {
-            const override = overrides.nestedItems[item.id];
-            if (override) item.price = { php: override.php, usd: override.usd };
-          }
+      for (const group of service.groups ?? []) {
+        for (const item of group.items) {
+          const override = overrides.nestedItems[item.id];
+          if (override) item.price = { php: override.php, usd: override.usd };
         }
-      } else {
-        const override = overrides.serviceBase[service.id];
-        if (override !== undefined) service.basePrice = override;
       }
+      const base = overrides.serviceBase[service.id];
+      if (base !== undefined) service.basePrice = base;
     }
   }
+  return categories;
 }
 
-export function restoreServiceDefaults(): void {
-  restorePrimoResourceDefaults();
-  const defaultsById = new Map(DEFAULT_CATEGORIES.map((c) => [c.id, c]));
-  for (const category of CATEGORIES) {
-    const defaultCategory = defaultsById.get(category.id);
-    if (!defaultCategory) continue;
-    for (const service of category.services) {
-      const defaultService = defaultCategory.services.find((s) => s.id === service.id);
-      if (!defaultService) continue;
-      if (service.type === "nested-list" && service.groups && defaultService.groups) {
-        for (let g = 0; g < service.groups.length; g++) {
-          for (let it = 0; it < service.groups[g].items.length; it++) {
-            const defaultItem = defaultService.groups[g]?.items[it];
-            if (defaultItem) service.groups[g].items[it].price = defaultItem.price;
-          }
-        }
-      } else {
-        service.basePrice = defaultService.basePrice;
-      }
-    }
-  }
+// Swap the live list in place so every page that reads CATEGORIES sees the change.
+function applyGenshinServices(): void {
+  const catalog = loadCatalog("genshin");
+  const overrides = loadOverrides();
+  const next: Category[] = catalog ? JSON.parse(JSON.stringify(catalog.categories)) : buildCategories(overrides);
+  CATEGORIES.splice(0, CATEGORIES.length, ...next);
+  primoResourceRates = {
+    ...PRIMO_RESOURCE_DEFAULT_RATES,
+    ...(catalog ? catalog.primoResourceRates : overrides.primoResourceRates),
+  };
 }
 
-applyServicePriceOverrides(loadOverrides());
+applyGenshinServices();
 
-subscribeToPriceOverrides(() => applyServicePriceOverrides(loadOverrides()));
+subscribeToPriceOverrides(applyGenshinServices);

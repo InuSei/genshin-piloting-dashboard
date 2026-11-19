@@ -1,12 +1,12 @@
 // src/pages/PriceEditor.tsx
 //
-// Private admin page for editing prices. Not linked from anywhere by
-// default — reach it directly at /admin/prices. Edits are staged locally
-// until you hit "Save All", which saves them to the server (api/prices.ts) and
-// applies them live to the running app.
+// Private admin page (protected by middleware.ts) for editing the whole
+// catalog: service cards, sections, items, exploration regions and prices.
+// Edits are staged locally until "Save All", which validates and saves them to
+// the server (api/prices.ts); the live site then updates for everyone.
 //
-// Supports both games we service: Genshin Impact (per-1% exploration) and
-// Honkai: Star Rail (flat bundles). Each game gets its own override store.
+// Supports both games: Genshin Impact (per-1% exploration) and Honkai: Star
+// Rail (flat bundles). Top-level tabs are fixed in code.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,42 +19,52 @@ import {
   Layers,
   Map,
   Package,
+  Plus,
   RotateCcw,
   Save,
-  Tag,
+  Undo2,
   Upload,
 } from "lucide-react";
 import {
   CATEGORIES,
-  applyServicePriceOverrides,
-  restoreServiceDefaults,
   PRIMO_RESOURCE_DEFAULT_RATES,
-  type Category,
+  buildCategories,
+  getPrimoResourceRates,
 } from "../data/services";
 import {
   EXPLORATION_REGIONS,
-  applyExplorationPriceOverrides,
+  buildRegions,
   getRegionBundlePrice,
-  restoreExplorationDefaults,
   type ExplorationCurrency,
   type ExplorationRegion,
 } from "../data/explorationRegions";
+import { HSR_CATEGORIES, buildHsrCategories } from "../data/hsrServices";
 import {
-  HSR_CATEGORIES,
-  applyHsrServicePriceOverrides,
-  restoreHsrServiceDefaults,
-} from "../data/hsrServices";
-import {
-  loadOverrides,
-  saveOverrides,
-  clearOverrides,
-  exportOverridesAsFile,
+  emptyOverrides,
   parseImportedOverrides,
+  restoreCatalog,
+  saveCatalog,
   type PriceOverrides,
   GENSHIN_STORAGE_KEY,
   GENSHIN_LEGACY_STORAGE_KEY,
   HSR_STORAGE_KEY,
 } from "../data/priceStorage";
+import {
+  CATALOG_SCHEMA_VERSION,
+  PROTECTED_ITEM_IDS,
+  collectCatalogIds,
+  makeCatalogId,
+  normalizeCatalog,
+  type Catalog,
+  type CatalogCategory,
+  type CatalogRegion,
+} from "../data/catalog";
+import {
+  RatePair,
+  RegionListEditor,
+  ServiceCardEditor,
+  type CatalogEditContext,
+} from "../components/admin/CatalogEditor";
 
 type GameKey = "genshin" | "hsr";
 
@@ -66,10 +76,24 @@ interface EditorGameConfig {
   filePrefix: string;
   hasExplorationRates: boolean;
   hasPrimoRates: boolean;
-  cloneCategories: () => Category[];
-  cloneRegions: () => ExplorationRegion[];
-  applyOverrides: (o: PriceOverrides) => void;
-  restoreDefaults: () => void;
+  liveCatalog: () => Catalog;
+  catalogFromOverrides: (o: PriceOverrides) => Catalog;
+}
+
+const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+// Region bundles are stored explicitly so editing sub-areas doesn't silently move them.
+const withBundles = (regions: ExplorationRegion[]): CatalogRegion[] =>
+  regions.map((region) => ({ ...region, bundlePrice: getRegionBundlePrice(region) }));
+
+function makeCatalog(
+  game: GameKey,
+  categories: unknown,
+  regions: CatalogRegion[] = [],
+  primoResourceRates: Catalog["primoResourceRates"] = {}
+): Catalog {
+  // The data files use looser types; normalizeCatalog checks the real shape on save.
+  return { schemaVersion: CATALOG_SCHEMA_VERSION, game, categories: categories as CatalogCategory[], regions, primoResourceRates };
 }
 
 const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
@@ -81,20 +105,13 @@ const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
     filePrefix: "gi",
     hasExplorationRates: true,
     hasPrimoRates: true,
-    cloneCategories: () => JSON.parse(JSON.stringify(CATEGORIES)),
-    cloneRegions: () =>
-      JSON.parse(JSON.stringify(EXPLORATION_REGIONS)).map((region: ExplorationRegion) => ({
-        ...region,
-        bundlePrice: getRegionBundlePrice(region),
-      })),
-    applyOverrides: (o) => {
-      applyServicePriceOverrides(o);
-      applyExplorationPriceOverrides(o);
-    },
-    restoreDefaults: () => {
-      restoreServiceDefaults();
-      restoreExplorationDefaults();
-    },
+    liveCatalog: () =>
+      makeCatalog("genshin", clone(CATEGORIES), withBundles(clone(EXPLORATION_REGIONS)), getPrimoResourceRates()),
+    catalogFromOverrides: (o) =>
+      makeCatalog("genshin", buildCategories(o), withBundles(buildRegions(o)), {
+        ...PRIMO_RESOURCE_DEFAULT_RATES,
+        ...o.primoResourceRates,
+      }),
   },
   hsr: {
     key: "hsr",
@@ -104,118 +121,38 @@ const GAME_CONFIGS: Record<GameKey, EditorGameConfig> = {
     filePrefix: "hsr",
     hasExplorationRates: false,
     hasPrimoRates: false,
-    cloneCategories: () => JSON.parse(JSON.stringify(HSR_CATEGORIES)),
-    cloneRegions: () => [],
-    applyOverrides: (o) => {
-      applyHsrServicePriceOverrides(o);
-    },
-    restoreDefaults: () => {
-      restoreHsrServiceDefaults();
-    },
+    liveCatalog: () => makeCatalog("hsr", clone(HSR_CATEGORIES)),
+    catalogFromOverrides: (o) => makeCatalog("hsr", buildHsrCategories(o)),
   },
 };
 
-const TYPE_META: Record<string, { label: string; background: string; border: string; color: string }> = {
-  checkbox: { label: "Add-on", background: "rgba(77, 122, 153, 0.1)", border: "rgba(77, 122, 153, 0.25)", color: "#4d7a99" },
-  quantity: { label: "Per Unit", background: "rgba(143, 184, 209, 0.12)", border: "rgba(143, 184, 209, 0.3)", color: "#5c85a0" },
-  "nested-list": { label: "Grouped Items", background: "rgba(94, 137, 170, 0.1)", border: "rgba(94, 137, 170, 0.28)", color: "#5c89a8" },
-};
-
-function TypeBadge({ type }: { type: string }) {
-  const meta = TYPE_META[type] ?? TYPE_META.checkbox;
-  return (
-    <span
-      className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shrink-0"
-      style={{ background: meta.background, border: `1px solid ${meta.border}`, color: meta.color }}
-    >
-      {meta.label}
-    </span>
-  );
-}
-
-export function parseCurrencyInput(raw: string): number | null {
-  const normalized = raw.trim();
-  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
-
-  const value = Number(normalized);
-  return Number.isFinite(value) && value >= 0 ? value : null;
-}
-
-function CurrencyInput({
-  value,
-  onChange,
-  className = "flex-1",
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  className?: string;
-}) {
-  const [draft, setDraft] = useState(() => String(value));
-  const [isEditing, setIsEditing] = useState(false);
-
-  useEffect(() => {
-    if (!isEditing) setDraft(String(value));
-  }, [isEditing, value]);
-
-  const commitDraft = () => {
-    const nextValue = parseCurrencyInput(draft);
-    if (nextValue === null) {
-      setDraft(String(value));
-    } else {
-      onChange(nextValue);
-      setDraft(String(nextValue));
+// Anything that would show as "Free" on the pricelist. Items named "free" on purpose are skipped.
+function listFreeEntries(catalog: Catalog): string[] {
+  const isZero = (p: { php: number; usd: number }) => p.php === 0 && p.usd === 0;
+  const entries: string[] = [];
+  for (const c of catalog.categories) {
+    for (const s of c.services) {
+      for (const g of s.groups) {
+        for (const item of g.items) {
+          if (isZero(item.price) && !/free/i.test(item.name)) entries.push(`${c.label} › ${g.name} › ${item.name}`);
+        }
+      }
     }
-    setIsEditing(false);
-  };
-
-  return (
-    <div className={className} style={{ minWidth: 0 }}>
-      <input
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        value={draft}
-        onFocus={(event) => {
-          setIsEditing(true);
-          event.currentTarget.select();
-        }}
-        onChange={(event) => {
-          const nextDraft = event.target.value;
-          setDraft(nextDraft);
-          setIsEditing(true);
-          const nextValue = parseCurrencyInput(nextDraft);
-          if (nextValue !== null) onChange(nextValue);
-        }}
-        onBlur={commitDraft}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur();
-        }}
-        className="w-full px-2 py-2 text-[13px] font-mono font-semibold bg-white rounded-lg outline-none transition-all focus:border-[#4d7a99] focus:ring-2 focus:ring-[rgba(77,122,153,0.18)]"
-        style={{ border: "1px solid #cfdce4", color: "#17222c" }}
-      />
-    </div>
-  );
+  }
+  for (const r of catalog.regions) {
+    for (const a of r.subAreas) if (isZero(a.pricePerPct)) entries.push(`Exploration › ${r.name} › ${a.name}`);
+    if (isZero(getRegionBundlePrice(r))) entries.push(`Exploration › ${r.name} (full bundle)`);
+  }
+  return entries;
 }
 
-function RatePair({
-  valuePhp,
-  valueUsd,
-  onPhp,
-  onUsd,
-}: {
-  valuePhp: number;
-  valueUsd: number;
-  onPhp: (v: number) => void;
-  onUsd: (v: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[12px] font-bold shrink-0" style={{ color: "#627789" }}>₱</span>
-      <CurrencyInput value={valuePhp} onChange={onPhp} />
-      <span className="text-[12px] font-bold shrink-0" style={{ color: "#627789" }}>$</span>
-      <CurrencyInput value={valueUsd} onChange={onUsd} />
-    </div>
-  );
+function downloadJson(fileName: string, data: unknown): void {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function StatCard({
@@ -285,13 +222,9 @@ function PriceEditorForGame({
   game: EditorGameConfig;
   onSwitchGame: (g: GameKey) => void;
 }) {
-  const [categories, setCategories] = useState<Category[]>(game.cloneCategories);
-  const [regions, setRegions] = useState<ExplorationRegion[]>(game.cloneRegions);
-  const [primoRates, setPrimoRates] = useState<Record<string, { php: number; usd: number }>>(() => ({
-    ...PRIMO_RESOURCE_DEFAULT_RATES,
-    ...loadOverrides(game.storageKey).primoResourceRates,
-  }));
-  const [activeTab, setActiveTab] = useState<string>(game.cloneCategories()[0].id);
+  const [catalog, setCatalog] = useState<Catalog>(game.liveCatalog);
+  const { categories, regions, primoResourceRates: primoRates } = catalog;
+  const [activeTab, setActiveTab] = useState<string>(() => catalog.categories[0].id);
   const [savedMessage, setSavedMessage] = useState(() => {
     if (
       game.key === "genshin" &&
@@ -309,153 +242,35 @@ function PriceEditorForGame({
     setTimeout(() => setSavedMessage(""), 3000);
   };
 
-  const updateNestedItemPrice = (
-    categoryId: string,
-    serviceId: string,
-    groupIdx: number,
-    itemIdx: number,
-    field: "php" | "usd",
-    value: number
-  ) => {
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id !== categoryId) return c;
-        return {
-          ...c,
-          services: c.services.map((s) => {
-            if (s.id !== serviceId || !s.groups) return s;
-            return {
-              ...s,
-              groups: s.groups.map((g, gi) => {
-                if (gi !== groupIdx) return g;
-                return {
-                  ...g,
-                  items: g.items.map((it, ii) => {
-                    if (ii !== itemIdx) return it;
-                    const price =
-                      typeof it.price === "object"
-                        ? it.price
-                        : { php: it.price, usd: it.price };
-                    return { ...it, price: { ...price, [field]: value } };
-                  }),
-                };
-              }),
-            };
-          }),
-        };
-      })
-    );
+  // Every edit goes through here: copy, change, replace (keeps React state immutable).
+  const edit = (fn: (draft: Catalog) => void) =>
+    setCatalog((prev) => {
+      const next = clone(prev);
+      fn(next);
+      return next;
+    });
+
+  const editCtx: CatalogEditContext = {
+    protectedIds: PROTECTED_ITEM_IDS[game.key],
+    newId: (prefix) => makeCatalogId(prefix, collectCatalogIds(catalog)),
   };
 
-  const updateServiceBasePrice = (
-    categoryId: string,
-    serviceId: string,
-    value: number
-  ) => {
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id !== categoryId) return c;
-        return {
-          ...c,
-          services: c.services.map((s) =>
-            s.id === serviceId ? { ...s, basePrice: value } : s
-          ),
-        };
-      })
-    );
-  };
-
-  const updateAreaRate = (
-    regionId: string,
-    areaId: string,
-    sub: "php" | "usd",
-    value: number
-  ) => {
-    setRegions((prev) =>
-      prev.map((r) =>
-        r.id === regionId
-          ? {
-              ...r,
-              subAreas: r.subAreas.map((sa) =>
-                sa.id === areaId ? { ...sa, pricePerPct: { ...sa.pricePerPct, [sub]: value } } : sa
-              ),
-            }
-          : r
-      )
-    );
-  };
-
-  const updateRegionBundle = (
-    regionId: string,
-    sub: ExplorationCurrency,
-    value: number
-  ) => {
+  const updateRegionBundle = (regionId: string, sub: ExplorationCurrency, value: number) => {
     if (!Number.isFinite(value) || value < 0) return;
-    const nextValue = Math.round(value * 100) / 100;
-
-    setRegions((prev) =>
-      prev.map((region) => {
-        if (region.id !== regionId) return region;
-        return {
-          ...region,
-          bundlePrice: {
-            ...getRegionBundlePrice(region),
-            [sub]: nextValue,
-          },
-        };
-      })
-    );
+    edit((d) => {
+      const region = d.regions.find((r) => r.id === regionId);
+      if (region) region.bundlePrice = { ...getRegionBundlePrice(region), [sub]: Math.round(value * 100) / 100 };
+    });
   };
 
-  const updatePrimoRate = (key: string, sub: "php" | "usd", value: number) => {
-    setPrimoRates((prev) => ({
-      ...prev,
-      [key]: { ...PRIMO_RESOURCE_DEFAULT_RATES[key], ...prev[key], [sub]: value },
-    }));
-  };
-
-  const buildOverridesFromState = (): PriceOverrides => {
-    const overrides: PriceOverrides = {
-      serviceBase: {},
-      nestedItems: {},
-      explorationAreas: {},
-      explorationBundles: {},
-      primoResourceRates: {},
-    };
-    for (const c of categories) {
-      for (const s of c.services) {
-        if (s.type === "nested-list" && s.groups) {
-          for (const g of s.groups) {
-            for (const it of g.items) {
-              const price =
-                typeof it.price === "object"
-                  ? it.price
-                  : { php: it.price, usd: it.price };
-              overrides.nestedItems[it.id] = price;
-            }
-          }
-        } else {
-          overrides.serviceBase[s.id] = s.basePrice;
-        }
-      }
-    }
-    for (const r of regions) {
-      overrides.explorationBundles[r.id] = getRegionBundlePrice(r);
-      for (const sa of r.subAreas) {
-        overrides.explorationAreas[`${r.id}__${sa.id}`] = sa.pricePerPct;
-      }
-    }
-    if (game.hasPrimoRates) {
-      for (const [key, rate] of Object.entries(primoRates)) {
-        overrides.primoResourceRates[key] = rate;
-      }
-    }
-    return overrides;
-  };
+  const updatePrimoRate = (key: string, sub: "php" | "usd", value: number) =>
+    edit((d) => {
+      d.primoResourceRates[key] = { ...PRIMO_RESOURCE_DEFAULT_RATES[key], ...d.primoResourceRates[key], [sub]: value };
+    });
 
   // Unsaved-change tracking: compare what's on screen with what was last saved/loaded.
-  // null = "adopt the next render's state as saved" (after reset/import replace the state).
-  const currentSnapshot = JSON.stringify(buildOverridesFromState());
+  // null = "adopt the next render's state as saved" (after save/reset/undo replace the state).
+  const currentSnapshot = JSON.stringify(catalog);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(currentSnapshot);
   const isDirty = savedSnapshot !== null && currentSnapshot !== savedSnapshot;
 
@@ -471,76 +286,104 @@ function PriceEditorForGame({
   }, [isDirty]);
 
   const confirmDiscard = () =>
-    !isDirty || confirm(`You have unsaved ${game.label} price changes. Leave without saving?`);
+    !isDirty || confirm(`You have unsaved ${game.label} changes. Leave without saving?`);
 
   const alertSaveFailed = (error: unknown) =>
-    alert(`${error instanceof Error ? error.message : "Saving prices failed"}. Nothing was changed on the live site; please try again.`);
+    alert(`${error instanceof Error ? error.message : "Saving failed"}. Nothing was changed on the live site; please try again.`);
 
   const handleSaveAll = async () => {
-    const overrides = buildOverridesFromState();
+    const result = normalizeCatalog(catalog, game.key);
+    if (!result.ok) {
+      alert(`Can't save yet: ${result.error}.`);
+      return;
+    }
+    const free = listFreeEntries(result.catalog);
+    const freeList = free.slice(0, 12).join("\n") + (free.length > 12 ? `\n…and ${free.length - 12} more` : "");
+    if (free.length > 0 && !confirm(`These will show as "Free" on the pricelist:\n\n${freeList}\n\nSave anyway?`)) return;
     try {
-      await saveOverrides(overrides, game.storageKey);
+      await saveCatalog(result.catalog);
     } catch (error) {
       alertSaveFailed(error);
       return;
     }
-    game.applyOverrides(overrides);
-    setSavedSnapshot(JSON.stringify(overrides));
+    setCatalog(result.catalog);
+    setSavedSnapshot(null);
     flash(`Saved! ${game.label} changes are live on the dashboard and pricelist.`);
   };
 
   const handleReset = async () => {
     if (
-      !confirm(
-        `Reset ALL ${game.label} prices back to the original defaults? This clears your saved edits.`
-      )
+      !confirmDiscard() ||
+      !confirm(`Reset ALL ${game.label} services and prices to the built-in defaults? Items you added are removed. "Undo last save" brings them back.`)
     )
       return;
+    const defaults = game.catalogFromOverrides(emptyOverrides());
     try {
-      await clearOverrides(game.storageKey);
+      await saveCatalog(defaults);
     } catch (error) {
       alertSaveFailed(error);
       return;
     }
-    game.restoreDefaults();
-    setCategories(game.cloneCategories());
-    setRegions(game.cloneRegions());
-    setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES });
+    setCatalog(defaults);
     setSavedSnapshot(null);
     flash("Reset to defaults.");
   };
 
+  const handleUndo = async () => {
+    if (!confirmDiscard() || !confirm(`Undo the last save? The live ${game.label} site goes back to the version before it.`)) return;
+    try {
+      await restoreCatalog(game.key);
+    } catch (error) {
+      alert(`Undo failed: ${error instanceof Error ? error.message : "unknown error"}.`);
+      return;
+    }
+    setCatalog(game.liveCatalog());
+    setSavedSnapshot(null);
+    flash("Last save undone.");
+  };
+
+  // Exports what's live (saved), not unsaved edits.
   const handleExport = () =>
-    exportOverridesAsFile(loadOverrides(game.storageKey), game.filePrefix, game.key);
+    downloadJson(`${game.filePrefix}-catalog-${new Date().toISOString().slice(0, 10)}.json`, game.liveCatalog());
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
-      const parsed = parseImportedOverrides(String(reader.result), game.storageKey);
-      if (!parsed) {
-        alert("Import failed. Select a valid v2+ pricing export for this game; legacy v1 exploration pricing is not compatible.");
-        return;
-      }
+    reader.onload = () => {
+      const raw = String(reader.result);
+      let parsed: unknown = null;
       try {
-        await saveOverrides(parsed, game.storageKey);
-      } catch (error) {
-        alertSaveFailed(error);
+        parsed = JSON.parse(raw);
+      } catch {
+        // not JSON: falls through to the error below
+      }
+      let imported: Catalog | null = null;
+      if ((parsed as { schemaVersion?: unknown } | null)?.schemaVersion === CATALOG_SCHEMA_VERSION) {
+        const result = normalizeCatalog(parsed, game.key);
+        if (!result.ok) {
+          alert(`Import failed: ${result.error}.`);
+          return;
+        }
+        imported = result.catalog;
+      } else {
+        // Older price-only exports still work.
+        const overrides = parseImportedOverrides(raw, game.storageKey);
+        if (overrides) imported = game.catalogFromOverrides(overrides);
+      }
+      if (!imported) {
+        alert("Import failed. Select a catalog or price export for this game.");
         return;
       }
-      game.applyOverrides(parsed);
-      setCategories(game.cloneCategories());
-      setRegions(game.cloneRegions());
-      setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES, ...parsed.primoResourceRates });
-      setSavedSnapshot(null);
-      flash("Import applied.");
+      setCatalog(imported);
+      flash("Imported. Review it, then click Save All to publish.");
     };
     reader.readAsText(file);
     e.target.value = "";
   };
 
-  const currentCategory = categories.find((c) => c.id === activeTab);
+  const currentCategoryIndex = categories.findIndex((c) => c.id === activeTab);
+  const currentCategory = currentCategoryIndex >= 0 ? categories[currentCategoryIndex] : undefined;
   const savedMessageIsWarning = savedMessage.startsWith("Legacy v1");
   const tabs = [
     ...categories.map((c) => ({ id: c.id, label: c.label })),
@@ -548,14 +391,11 @@ function PriceEditorForGame({
     ...(game.hasPrimoRates ? [{ id: "primo-resource-rates", label: "Primo Resource Rates" }] : []),
   ];
 
-  const savedOverrides = loadOverrides(game.storageKey);
-  const overrideCount =
-    Object.keys(savedOverrides.serviceBase).length +
-    Object.keys(savedOverrides.nestedItems).length +
-    Object.keys(savedOverrides.explorationAreas).length +
-    Object.keys(savedOverrides.explorationBundles).length +
-    Object.keys(savedOverrides.primoResourceRates).length;
   const totalServiceCount = categories.reduce((sum, c) => sum + c.services.length, 0);
+  const totalItemCount = categories.reduce(
+    (sum, c) => sum + c.services.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0),
+    0
+  );
 
   return (
     <div
@@ -600,7 +440,7 @@ function PriceEditorForGame({
                   </span>
                 </div>
                 <p className="text-[11px] mt-0.5 font-medium truncate" style={{ color: "#7891a3" }}>
-                  {game.label} — edit service prices &amp; exploration rates · changes apply live after Save All
+                  {game.label} — add, edit &amp; remove services, prices and map areas · changes go live after Save All
                 </p>
               </div>
             </div>
@@ -622,6 +462,14 @@ function PriceEditorForGame({
                 Import
                 <input type="file" accept="application/json" onChange={handleImportFile} className="hidden" />
               </label>
+              <button
+                onClick={handleUndo}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
+                style={{ border: "1px solid rgba(77,122,153,0.3)", color: "#a9bccb", background: "rgba(255,255,255,0.04)" }}
+              >
+                <Undo2 size={14} />
+                Undo last save
+              </button>
               <button
                 onClick={handleReset}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
@@ -702,7 +550,7 @@ function PriceEditorForGame({
           ) : (
             <StatCard icon={<Map size={16} />} label="Exploration" value="Bundles" />
           )}
-          <StatCard icon={<Coins size={16} />} label="Saved Overrides" value={overrideCount} highlight={overrideCount > 0} />
+          <StatCard icon={<Coins size={16} />} label="Items" value={totalItemCount} />
         </div>
 
         {game.hasPrimoRates && activeTab === "primo-resource-rates" ? (
@@ -765,56 +613,16 @@ function PriceEditorForGame({
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Exploration Rates</h2>
                 <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>
-                  Per-1% price for each sub-area — total = missing % × rate
+                  Per-1% price for each sub-area (total = missing % × rate). Add, rename, reorder or remove regions and sub-areas here.
                 </p>
               </div>
             </div>
 
-            <div
-              className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#56697a" }}
-            >
-              <span>Sub-Area</span>
-              <span className="text-right">Price per 1%</span>
-            </div>
-
-            <div className="flex flex-col">
-              {regions.map((region, ri) => (
-                <div key={region.id}>
-                  <div
-                    className="flex items-center gap-2.5 px-5 py-2.5 bg-[#f7fafc]"
-                    style={{ borderTop: ri !== 0 ? "1px solid #eef3f6" : "none" }}
-                  >
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
-                    <span className="font-bold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest" style={{ color: "#627789", background: "#eef3f6" }}>
-                      {region.tag}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    {region.subAreas.map((sa) => (
-                      <div
-                        key={sa.id}
-                        className={`flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-5 py-3 hover:bg-[#f7fafc] transition-colors ${sa !== region.subAreas[region.subAreas.length - 1] ? "border-b" : ""}`}
-                        style={{ borderColor: "#eef3f6" }}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0 md:w-[calc(100%-236px)] shrink-0">
-                          <span className="text-[13px] font-medium truncate" style={{ color: "#5c7284" }}>{sa.name}</span>
-                        </div>
-                        <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
-                          <RatePair
-                            valuePhp={sa.pricePerPct.php}
-                            valueUsd={sa.pricePerPct.usd}
-                            onPhp={(v) => updateAreaRate(region.id, sa.id, "php", v)}
-                            onUsd={(v) => updateAreaRate(region.id, sa.id, "usd", v)}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RegionListEditor
+              regions={regions}
+              ctx={editCtx}
+              onChange={(next) => edit((d) => { d.regions = next; })}
+            />
           </section>
         ) : game.hasExplorationRates && currentCategory && currentCategory.id === "exploration" ? (
           <section key="exploration-bundles" className="animate-fade-up bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2eaef", boxShadow: "0 4px 24px rgba(23,34,44,0.06)" }}>
@@ -875,117 +683,44 @@ function PriceEditorForGame({
               </div>
             </div>
 
-            {currentCategory.services.map((service) => (
-              <div
+            {currentCategory.services.map((service, si) => (
+              <ServiceCardEditor
                 key={service.id}
-                className="bg-white rounded-2xl overflow-hidden transition-shadow hover:shadow-[0_10px_30px_rgba(23,34,44,0.08)]"
-                style={{ border: "1px solid #e2eaef" }}
-              >
-                <div
-                  className="flex items-start justify-between gap-3 px-5 py-4"
-                  style={{ background: "linear-gradient(180deg,#fafcfd,#f2f6f9)", borderBottom: "1px solid #eef3f6" }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(77,122,153,0.1)" }}>
-                      <Tag size={15} style={{ color: "#4d7a99" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-[15px] truncate" style={{ color: "#17222c" }}>{service.name}</h3>
-                      {service.description && (
-                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>{service.description}</p>
-                      )}
-                    </div>
-                  </div>
-                  <TypeBadge type={service.type} />
-                </div>
-
-                <div className="p-5">
-                  {service.type === "nested-list" && service.groups ? (
-                    <div className="flex flex-col gap-5">
-                      {service.groups.map((group, gi) => (
-                        <div key={group.name} className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 mb-1.5 px-3">
-                            <span className="font-mono text-[10px] font-bold" style={{ color: "#4d7a99" }}>
-                              {String(gi + 1).padStart(2, "0")}
-                            </span>
-                            <h4 className="text-[11px] font-extrabold uppercase tracking-widest whitespace-nowrap" style={{ color: "#627789" }}>
-                              {group.name}
-                            </h4>
-                            <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,#eef3f6,transparent)" }} />
-                          </div>
-                          {group.items.map((item, ii) => {
-                            const price =
-                              typeof item.price === "object"
-                                ? item.price
-                                : { php: item.price, usd: item.price };
-                            return (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f7fafc]"
-                                style={
-                                  item.isBundle
-                                    ? { background: "#eef3f6", border: "1px solid #cfdce4" }
-                                    : { border: "1px solid transparent" }
-                                }
-                              >
-                                <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
-                                  {item.name}
-                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#627789" }}>ea</span>}
-                                  {item.isQuantity && typeof item.max === "number" && (
-                                    <span className="text-[10px] font-sans ml-1" style={{ color: "#c3d0d9" }}>· max {item.max}</span>
-                                  )}
-                                  {item.isBundle && (
-                                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest align-middle" style={{ color: "#4d7a99", background: "rgba(77, 122, 153, 0.12)" }}>
-                                      100% bundle
-                                    </span>
-                                  )}
-                                </span>
-                                <div className="flex items-center gap-1.5 shrink-0 ml-4">
-                                  <span className="text-[12px] font-bold" style={{ color: "#627789" }}>₱</span>
-                                  <CurrencyInput
-                                    className="w-20"
-                                    value={price.php}
-                                    onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "php", v)}
-                                  />
-                                  <span className="text-[12px] font-bold" style={{ color: "#627789" }}>$</span>
-                                  <CurrencyInput
-                                    className="w-20"
-                                    value={price.usd}
-                                    onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "usd", v)}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#627789" }}>
-                          Base Rate
-                        </span>
-                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#627789" }}>
-                          Per unit (PHP)
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold" style={{ color: "#627789" }}>₱</span>
-                        <CurrencyInput
-                          className="w-28"
-                          value={service.basePrice}
-                          onChange={(v) => updateServiceBasePrice(currentCategory.id, service.id, v)}
-                        />
-                        <span className="text-[11px] font-mono font-semibold" style={{ color: "#627789" }}>
-                          ≈ ${(service.basePrice / 60.75).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                service={service}
+                index={si}
+                count={currentCategory.services.length}
+                ctx={editCtx}
+                onChange={(next) => edit((d) => { d.categories[currentCategoryIndex].services[si] = next; })}
+                onMove={(dir) =>
+                  edit((d) => {
+                    const list = d.categories[currentCategoryIndex].services;
+                    const target = si + dir;
+                    if (target >= 0 && target < list.length) [list[si], list[target]] = [list[target], list[si]];
+                  })
+                }
+                onDelete={() => edit((d) => { d.categories[currentCategoryIndex].services.splice(si, 1); })}
+              />
             ))}
+            <button
+              type="button"
+              onClick={() =>
+                edit((d) => {
+                  d.categories[currentCategoryIndex].services.push({
+                    id: editCtx.newId("svc"),
+                    type: "nested-list",
+                    name: "New service",
+                    description: "",
+                    basePrice: 0,
+                    groups: [{ name: "New section", items: [] }],
+                  });
+                })
+              }
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[13px] font-bold transition-colors hover:bg-white"
+              style={{ color: "#4d7a99", border: "1px dashed #b8cad6" }}
+            >
+              <Plus size={15} aria-hidden="true" />
+              Add service card to {currentCategory.label}
+            </button>
           </section>
         ) : null}
       </main>

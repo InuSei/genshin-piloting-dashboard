@@ -9,6 +9,7 @@
 // 100% bundles and there is no compass surcharge.
 
 import {
+  loadCatalog,
   loadOverrides,
   HSR_STORAGE_KEY,
   subscribeToPriceOverrides,
@@ -367,48 +368,32 @@ export function buildHsrReceiptItems(selections: ServiceSelection): ReceiptLineI
 
 const DEFAULT_HSR_CATEGORIES: Category[] = JSON.parse(JSON.stringify(HSR_CATEGORIES));
 
-export function applyHsrServicePriceOverrides(overrides: PriceOverrides): void {
-  restoreHsrServiceDefaults();
-
-  for (const category of HSR_CATEGORIES) {
+// Built-in services with older price-only overrides applied.
+export function buildHsrCategories(overrides: PriceOverrides): Category[] {
+  const categories: Category[] = JSON.parse(JSON.stringify(DEFAULT_HSR_CATEGORIES));
+  for (const category of categories) {
     for (const service of category.services) {
-      if (service.type === "nested-list" && service.groups) {
-        for (const group of service.groups) {
-          for (const item of group.items) {
-            const override = overrides.nestedItems[item.id];
-            if (override) item.price = { php: override.php, usd: override.usd };
-          }
+      for (const group of service.groups ?? []) {
+        for (const item of group.items) {
+          const override = overrides.nestedItems[item.id];
+          if (override) item.price = { php: override.php, usd: override.usd };
         }
-      } else {
-        const override = overrides.serviceBase[service.id];
-        if (override !== undefined) service.basePrice = override;
       }
+      const base = overrides.serviceBase[service.id];
+      if (base !== undefined) service.basePrice = base;
     }
   }
+  return categories;
 }
 
-export function restoreHsrServiceDefaults(): void {
-  const defaultsById = new Map(DEFAULT_HSR_CATEGORIES.map((c) => [c.id, c]));
-  for (const category of HSR_CATEGORIES) {
-    const defaultCategory = defaultsById.get(category.id);
-    if (!defaultCategory) continue;
-    for (const service of category.services) {
-      const defaultService = defaultCategory.services.find((s) => s.id === service.id);
-      if (!defaultService) continue;
-      if (service.type === "nested-list" && service.groups && defaultService.groups) {
-        for (let g = 0; g < service.groups.length; g++) {
-          for (let it = 0; it < service.groups[g].items.length; it++) {
-            const defaultItem = defaultService.groups[g]?.items[it];
-            if (defaultItem) service.groups[g].items[it].price = defaultItem.price;
-          }
-        }
-      } else {
-        service.basePrice = defaultService.basePrice;
-      }
-    }
-  }
+function applyHsrServices(): void {
+  const catalog = loadCatalog("hsr");
+  const next: Category[] = catalog
+    ? JSON.parse(JSON.stringify(catalog.categories))
+    : buildHsrCategories(loadOverrides(HSR_STORAGE_KEY));
+  HSR_CATEGORIES.splice(0, HSR_CATEGORIES.length, ...next);
 }
 
-applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY));
+applyHsrServices();
 
-subscribeToPriceOverrides(() => applyHsrServicePriceOverrides(loadOverrides(HSR_STORAGE_KEY)));
+subscribeToPriceOverrides(applyHsrServices);

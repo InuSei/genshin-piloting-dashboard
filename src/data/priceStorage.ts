@@ -1,3 +1,5 @@
+import { normalizeCatalog, type Catalog } from "./catalog";
+
 export interface StoredPrice {
   php: number;
   usd: number;
@@ -16,11 +18,6 @@ export interface PriceOverrides {
 
 export type PriceGame = "genshin" | "hsr";
 
-interface StoredOverridesFile extends PriceOverrides {
-  schemaVersion: number;
-  game: PriceGame;
-}
-
 export const GENSHIN_STORAGE_KEY = "suino_price_overrides_v2";
 export const GENSHIN_LEGACY_STORAGE_KEY = "suino_price_overrides_v1";
 export const HSR_STORAGE_KEY = "suino_price_overrides_hsr";
@@ -32,7 +29,7 @@ const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const priceListeners = new Set<() => void>();
 let priceRevision = 0;
 
-function emptyOverrides(): PriceOverrides {
+export function emptyOverrides(): PriceOverrides {
   return { serviceBase: {}, nestedItems: {}, explorationAreas: {}, explorationBundles: {}, primoResourceRates: {} };
 }
 
@@ -92,16 +89,17 @@ export function normalizeOverrides(value: unknown, storageKey: string): PriceOve
   return { serviceBase, nestedItems, explorationAreas, explorationBundles, primoResourceRates };
 }
 
-function storedFile(overrides: PriceOverrides, game: PriceGame): StoredOverridesFile {
-  return {
-    ...overrides,
-    schemaVersion: SCHEMA_VERSION,
-    game,
-  };
-}
-
-// Shared prices from the server (api/prices.ts), loaded once at startup.
+// Shared data from the server (api/prices.ts), loaded once at startup.
+// A saved catalog wins; older price-only overrides apply only when there is none.
 const sharedOverrides: Record<PriceGame, PriceOverrides> = { genshin: emptyOverrides(), hsr: emptyOverrides() };
+const sharedCatalogs: Record<PriceGame, Catalog | null> = { genshin: null, hsr: null };
+
+function readCatalog(value: unknown, game: PriceGame): Catalog | null {
+  if (value === null || value === undefined) return null;
+  const result = normalizeCatalog(value, game);
+  if (!result.ok) console.error(`Saved ${game} catalog is invalid (${result.error}); showing defaults.`);
+  return result.ok ? result.catalog : null;
+}
 
 // On failure the hardcoded default prices stay in place.
 export async function fetchOverrides(): Promise<void> {
@@ -112,6 +110,9 @@ export async function fetchOverrides(): Promise<void> {
     if (!isRecord(data)) throw new Error("Malformed response");
     sharedOverrides.genshin = normalizeOverrides(data.genshin ?? {}, GENSHIN_STORAGE_KEY) ?? emptyOverrides();
     sharedOverrides.hsr = normalizeOverrides(data.hsr ?? {}, HSR_STORAGE_KEY) ?? emptyOverrides();
+    const catalogs = isRecord(data.catalog) ? data.catalog : {};
+    sharedCatalogs.genshin = readCatalog(catalogs.genshin, "genshin");
+    sharedCatalogs.hsr = readCatalog(catalogs.hsr, "hsr");
     notifyPriceOverridesChanged();
   } catch (error) {
     console.error("Could not load shared prices; showing defaults.", error);
@@ -122,43 +123,36 @@ export function loadOverrides(storageKey: string = GENSHIN_STORAGE_KEY): PriceOv
   return sharedOverrides[gameForStorageKey(storageKey)];
 }
 
-export async function saveOverrides(overrides: PriceOverrides, storageKey: string = GENSHIN_STORAGE_KEY): Promise<void> {
-  const game = gameForStorageKey(storageKey);
-  const normalized = normalizeOverrides(overrides, storageKey);
-  if (!normalized) throw new Error("Invalid price overrides");
-  // Under /admin/ so the browser reuses the admin page's Basic auth login.
+export function loadCatalog(game: PriceGame): Catalog | null {
+  return sharedCatalogs[game];
+}
+
+// Under /admin/ so the browser reuses the admin page's Basic auth login.
+async function postAdmin(body: object): Promise<Record<string, unknown>> {
   const res = await fetch("/admin/api/prices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ game, overrides: normalized }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Saving prices failed (HTTP ${res.status})`);
-  sharedOverrides[game] = normalized;
+  const data: unknown = await res.json().catch(() => ({}));
+  const record = isRecord(data) ? data : {};
+  if (!res.ok) throw new Error(typeof record.error === "string" ? record.error : `HTTP ${res.status}`);
+  return record;
+}
+
+export async function saveCatalog(catalog: Catalog): Promise<void> {
+  const result = normalizeCatalog(catalog, catalog.game);
+  if (!result.ok) throw new Error(result.error);
+  await postAdmin({ game: catalog.game, action: "save", catalog: result.catalog });
+  sharedCatalogs[catalog.game] = result.catalog;
   notifyPriceOverridesChanged();
 }
 
-export function clearOverrides(storageKey: string = GENSHIN_STORAGE_KEY): Promise<void> {
-  return saveOverrides(emptyOverrides(), storageKey);
-}
-
-export function exportOverridesAsFile(
-  overrides: PriceOverrides,
-  prefix = "suino",
-  game: PriceGame = prefix.toLowerCase().includes("hsr") ? "hsr" : "genshin"
-): void {
-  const storageKey = game === "hsr" ? HSR_STORAGE_KEY : GENSHIN_STORAGE_KEY;
-  const normalized = normalizeOverrides(overrides, storageKey);
-  if (!normalized) throw new Error("Invalid price overrides");
-
-  const blob = new Blob([JSON.stringify(storedFile(normalized, game), null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${prefix}-price-overrides-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+// Undo the last save on the server; the site falls back to whatever came before.
+export async function restoreCatalog(game: PriceGame): Promise<void> {
+  const data = await postAdmin({ game, action: "restore" });
+  sharedCatalogs[game] = readCatalog(data.catalog, game);
+  notifyPriceOverridesChanged();
 }
 
 export function parseImportedOverrides(
