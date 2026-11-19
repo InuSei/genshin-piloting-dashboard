@@ -1,4 +1,4 @@
-import { useState, useCallback, useSyncExternalStore } from "react";
+import { useState, useCallback, useEffect, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { Header, GENSHIN_TABS } from "./components/Header";
 import { ServiceList } from "./components/ServiceList";
 import { ExplorationPanel } from "./components/ExplorationPanel";
@@ -24,16 +24,36 @@ import {
   subscribeToPriceOverrides,
 } from "./data/priceStorage";
 
+// Keeps the in-progress order in this browser so a reload doesn't wipe it.
+function useStoredState<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // storage full or blocked: the order still works, it just won't survive a reload
+    }
+  }, [key, value]);
+  return [value, setValue];
+}
+
 export default function App() {
   useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
   const [activeCategory, setActiveCategory] = useState<string>("maintenance");
-  const [selections, setSelections] = useState<ServiceSelection>({});
-  const [explorationSelections, setExplorationSelections] = useState<ExplorationSelections>({});
-  const [bundledRegions, setBundledRegions] = useState<ExplorationBundles>({});
-  const [clientName, setClientName] = useState("");
-  const [isFirstTimeClient, setIsFirstTimeClient] = useState<boolean>(false);
-  const [noCompassRegions, setNoCompassRegions] = useState<Record<string, boolean>>({});
-  const [primoResourceLevel, setPrimoResourceLevel] = useState<number>(0);
+  const [selections, setSelections] = useStoredState<ServiceSelection>("zb-genshin-selections", {});
+  const [explorationSelections, setExplorationSelections] = useStoredState<ExplorationSelections>("zb-genshin-exploration", {});
+  const [bundledRegions, setBundledRegions] = useStoredState<ExplorationBundles>("zb-genshin-bundles", {});
+  const [clientName, setClientName] = useStoredState("zb-genshin-client", "");
+  const [isFirstTimeClient, setIsFirstTimeClient] = useStoredState<boolean>("zb-genshin-first-time", false);
+  const [noCompassRegions, setNoCompassRegions] = useStoredState<Record<string, boolean>>("zb-genshin-no-compass", {});
+  const [primoResourceLevel, setPrimoResourceLevel] = useStoredState<number>("zb-genshin-primo-level", 0);
   const handleToggleCheckbox = useCallback((serviceId: string) => {
     setSelections((prev) =>
       resolveBundleSelection(prev, serviceId, prev[serviceId] ? 0 : 1)
@@ -147,6 +167,13 @@ export default function App() {
   const receiptItems = [...serviceReceiptItemsWithResourceRate, ...explorationReceiptItems, ...compassSurchargeItems];
   const cartCount = receiptItems.length;
 
+  const tabCounts: Record<string, number> = {};
+  for (const category of CATEGORIES) {
+    const items = category.services.flatMap((s): { id: string }[] => s.groups?.flatMap((g) => g.items) ?? [s]);
+    tabCounts[category.id] = items.filter((item) => (selections[item.id] ?? 0) > 0).length;
+  }
+  tabCounts.exploration = explorationReceiptItems.length + compassSurchargeItems.length;
+
   return (
     <div className="flex flex-col w-full min-h-screen lg:h-screen lg:overflow-hidden">
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
@@ -155,11 +182,13 @@ export default function App() {
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           cartCount={cartCount}
+          tabCounts={tabCounts}
         />
       </div>
 
       <div className="flex flex-col lg:flex-row flex-1 relative z-10 lg:min-h-0">
         <main className="flex-1 lg:overflow-y-auto px-4 lg:px-6 py-6" style={{ minWidth: 0 }}>
+          {activeCategory === "maintenance" && (
           <div
             className="w-full rounded-2xl overflow-hidden mb-6 relative"
             style={{
@@ -173,6 +202,7 @@ export default function App() {
               className="w-full h-auto block"
             />
           </div>
+          )}
 
           {activeCategory === "exploration" ? (
             <ExplorationPanel

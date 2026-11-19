@@ -343,19 +343,22 @@ async function exportReceiptAsPNG(
   const explorationRegions = getReceiptExplorationRegions(items, explorationSelections);
   const headerH = bannerImg ? BANNER_H + PADDING : PADDING * 2;
 
-  let cardH = headerH + 40 + SECTION_GAP + (standardItems.length * LINE_H);
+  const FOOTER_BOTTOM_PAD = 24;
 
+  // Must mirror the drawing code below step for step; the check at the end warns if they drift.
+  let cardH = headerH + 40 + SECTION_GAP;
+  if (standardItems.length > 0) cardH += 12 + 24 + standardItems.length * LINE_H;
+
+  if (explorationRegions.length > 0) cardH += (standardItems.length > 0 ? 10 : 0) + 24;
   for (const { bundleItem, areaItems, compassItem } of explorationRegions) {
     cardH += 24 + 22;
     cardH += (bundleItem ? 1 : areaItems.length) * 20;
     if (compassItem) cardH += 20;
-    cardH += 34 + 16;
+    cardH += 34;
   }
 
-  if (explorationRegions.length > 0) cardH += 40;
-
   const boxHeight = isFirstTimeClient ? 104 : 64;
-  cardH += SECTION_GAP + boxHeight + 40 + PADDING;
+  cardH += SECTION_GAP + boxHeight + SECTION_GAP + 10 + 16 + FOOTER_BOTTOM_PAD;
 
   const CANVAS_H = cardH + (CARD_Y * 2);
   const canvas = document.createElement("canvas");
@@ -487,9 +490,9 @@ async function exportReceiptAsPNG(
           currentY += 24;
 
           const col1 = leftAlign + 8;
-          const col2 = leftAlign + 210;
-          const col3 = leftAlign + 280;
-          const col4 = leftAlign + 360;
+          const col2 = leftAlign + 190;
+          const col3 = leftAlign + 255;
+          const col4 = leftAlign + 370;
           const col5 = rightAlign - 8;
 
           ctx.fillStyle = "#9db0bc";
@@ -687,6 +690,11 @@ async function exportReceiptAsPNG(
   ctx.fillStyle = "#9db0bc";
   ctx.font = "500 10px sans-serif";
   ctx.fillText("@ZBPServices · discord.gg/eqwajc5pea", CARD_X + (CARD_W / 2), currentY + 16);
+
+  const drawnBottom = currentY + 16 + FOOTER_BOTTOM_PAD;
+  if (Math.abs(drawnBottom - (CARD_Y + cardH)) > 0.5) {
+    console.warn(`Receipt height mismatch: card ends at ${CARD_Y + cardH}, content at ${drawnBottom}`);
+  }
 
   const link = document.createElement("a");
   link.download = `ZBP_Receipt_${clientName.replace(/\s+/g, "_")}_${Date.now()}.png`;

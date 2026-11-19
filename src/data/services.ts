@@ -249,6 +249,8 @@ export const CATEGORIES: Category[] = [
               { id: "aq_sne_2", name: "Act II: Wraith's Nocturne", price: { php: 150, usd: 2.45 } },
               { id: "aq_sne_3", name: "Act III: White Night, Like a Dream", price: { php: 150, usd: 2.45 } },
               { id: "aq_sne_4", name: "Act IV: A Rekviem for the Underworld", price: { php: 150, usd: 2.45 } },
+              { id: "aq_sne_5", name: "Act V: Hour of Ruin", price: { php: 150, usd: 2.45 } },
+              { id: "aq_sne_6", name: "Act VI: Yesterday Sent From Beyond", price: { php: 150, usd: 2.45 } },
             ]
           },
           {

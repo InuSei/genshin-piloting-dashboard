@@ -151,6 +151,9 @@ export const EXPLORATION_REGIONS: ExplorationRegion[] = [
       { id: "fellfrost-peak", name: "Fellfrost Peak", pricePerPct: { php: 3.5, usd: 0.057 } },
       { id: "everfrozen-earth", name: "Everfrozen Earth", pricePerPct: { php: 5.5, usd: 0.089 } },
       { id: "white-birch-snowgrave", name: "White Birch Snowgrave", pricePerPct: { php: 3.5, usd: 0.057 } },
+      // Price left at 0 on purpose; set it in the Price Editor.
+      { id: "novokitezhgrad", name: "Novokitezhgrad", pricePerPct: { php: 0, usd: 0 } },
+      { id: "wingspan-peak", name: "Wingspan Peak", pricePerPct: { php: 0, usd: 0 } },
     ],
   },
   {

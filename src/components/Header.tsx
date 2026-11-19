@@ -28,9 +28,28 @@ interface HeaderProps {
   activeCategory: string;
   onCategoryChange: (id: string) => void;
   cartCount: number;
+  tabCounts?: Record<string, number>;
 }
 
-export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, cartCount }: HeaderProps) {
+function TabCount({ count, isActive }: { count?: number; isActive: boolean }) {
+  if (!count) return null;
+  return (
+    <span
+      className="min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center"
+      style={{
+        background: isActive ? "rgba(13, 20, 32, 0.85)" : "#4d7a99",
+        color: "#fff",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: "11px",
+        fontWeight: 700,
+      }}
+    >
+      {count}
+    </span>
+  );
+}
+
+export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, cartCount, tabCounts }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -107,6 +126,7 @@ export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, 
                 }
               >
                 {tab.label}
+                <TabCount count={tabCounts?.[tab.id]} isActive={isActive} />
               </button>
             );
           })}
@@ -176,7 +196,7 @@ export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, 
                   onCategoryChange(tab.id);
                   setIsMobileMenuOpen(false);
                 }}
-                className="text-left px-4 py-3 rounded-xl transition-all duration-200"
+                className="flex items-center justify-between text-left px-4 py-3 rounded-xl transition-all duration-200"
                 style={
                   isActive
                     ? {
@@ -198,6 +218,7 @@ export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, 
                 }
               >
                 {tab.label}
+                <TabCount count={tabCounts?.[tab.id]} isActive={false} />
               </button>
             );
           })}

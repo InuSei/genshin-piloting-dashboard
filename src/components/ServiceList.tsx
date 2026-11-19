@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import {
   isActCoveredByBundle,
   PRIMO_PULL_UNITS,
   getPrimoResourceRate,
   type Category,
+  type Service,
   type ServiceSelection,
 } from "../data/services";
 
@@ -39,6 +41,17 @@ function calcPrice(
   return basePrice * value;
 }
 
+// Keeps a service if its name matches; otherwise keeps only the groups/items that match.
+function filterService(service: Service, query: string): Service | null {
+  const matches = (text: string) => text.toLowerCase().includes(query);
+  if (!query || matches(service.name)) return service;
+  if (!service.groups) return matches(service.description) ? service : null;
+  const groups = service.groups
+    .map((group) => (matches(group.name) ? group : { ...group, items: group.items.filter((i) => matches(i.name)) }))
+    .filter((group) => group.items.length > 0);
+  return groups.length > 0 ? { ...service, groups } : null;
+}
+
 export function ServiceList({
   category,
   selections,
@@ -47,6 +60,13 @@ export function ServiceList({
   primoResourceLevel,
   onPrimoResourceChange,
 }: ServiceListProps) {
+  const [query, setQuery] = useState("");
+  useEffect(() => setQuery(""), [category.id]);
+  const trimmedQuery = query.trim().toLowerCase();
+  const visibleServices = category.services
+    .map((service) => filterService(service, trimmedQuery))
+    .filter((service): service is Service => service !== null);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Category header — eyebrow + accent bar, light text for the dark backdrop */}
@@ -92,8 +112,28 @@ export function ServiceList({
         </div>
       </div>
 
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={`Search ${category.label}…`}
+        aria-label={`Search ${category.label}`}
+        className="w-full rounded-xl px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#8fb8d1]"
+        style={{
+          border: "1px solid rgba(77, 122, 153, 0.25)",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: "14px",
+          color: "#17222c",
+        }}
+      />
+
       <div className="flex flex-col gap-3">
-        {category.services.map((service) => {
+        {visibleServices.length === 0 && (
+          <p className="px-2" style={{ fontFamily: "'Inter', sans-serif", fontSize: "14px", color: "#a9bccb" }}>
+            No services match “{query.trim()}”.
+          </p>
+        )}
+        {visibleServices.map((service) => {
           const currentVal = selections[service.id] ?? 0;
           const price = calcPrice(service.type, service.basePrice, currentVal);
 
