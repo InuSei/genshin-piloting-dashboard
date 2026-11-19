@@ -136,7 +136,7 @@ export function ExplorationPanel({
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: "16px",
                     fontWeight: 800,
-                    color: hasData ? "#4d7a99" : "#9db0bc",
+                    color: hasData ? "#4d7a99" : "#627789",
                     minWidth: "72px",
                     textAlign: "right",
                   }}
@@ -160,7 +160,7 @@ export function ExplorationPanel({
                       <span className="block font-sans text-[13px] font-bold" style={{ color: "#17222c" }}>
                         Full Region Bundle
                       </span>
-                      <span className="block font-sans text-[11px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                      <span className="block font-sans text-[11px] font-medium mt-0.5" style={{ color: "#56697a" }}>
                         Select 100% remaining progress for every sub-area
                       </span>
                     </label>
@@ -168,20 +168,20 @@ export function ExplorationPanel({
                       <span className="block font-mono text-[14px] font-bold" style={{ color: isBundleSelected ? "#4d7a99" : "#5c7284" }}>
                         ₱{bundlePrice.php.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                      <span className="block font-mono text-[10px] font-semibold mt-0.5" style={{ color: "#9db0bc" }}>
+                      <span className="block font-mono text-[10px] font-semibold mt-0.5" style={{ color: "#627789" }}>
                         ${bundlePrice.usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center px-5 py-2" style={{ background: "#eef3f6", borderBottom: "1px solid #e2eaef" }}>
-                    <span className="flex-1" style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#7891a3", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <span className="flex-1" style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#56697a", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       Sub-Area
                     </span>
-                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#7891a3", textTransform: "uppercase", letterSpacing: "0.1em", width: "60px", textAlign: "center" }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#56697a", textTransform: "uppercase", letterSpacing: "0.1em", width: "60px", textAlign: "center" }}>
                       %
                     </span>
-                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#7891a3", textTransform: "uppercase", letterSpacing: "0.1em", width: "72px", textAlign: "right" }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "10px", fontWeight: 700, color: "#56697a", textTransform: "uppercase", letterSpacing: "0.1em", width: "72px", textAlign: "right" }}>
                       Price
                     </span>
                   </div>
@@ -220,13 +220,13 @@ export function ExplorationPanel({
                               }}
                               onFocus={(e) => e.target.select()}
                               className="w-full text-center py-1.5 outline-none font-mono text-[14px] font-bold bg-transparent"
-                              style={{ color: isActive ? "#17222c" : "#7891a3", MozAppearance: "textfield" }}
+                              style={{ color: isActive ? "#17222c" : "#56697a", MozAppearance: "textfield" }}
                             />
-                            <span className="font-mono text-[12px] font-bold pr-1.5 select-none" style={{ color: isActive ? "#4d7a99" : "#9db0bc" }}>
+                            <span className="font-mono text-[12px] font-bold pr-1.5 select-none" style={{ color: isActive ? "#4d7a99" : "#627789" }}>
                               %
                             </span>
                           </div>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "14px", fontWeight: 700, color: isActive ? "#4d7a99" : "#9db0bc", width: "72px", textAlign: "right" }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "14px", fontWeight: 700, color: isActive ? "#4d7a99" : "#627789", width: "72px", textAlign: "right" }}>
                             {isActive ? `₱${priceObj.php.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                           </span>
                         </div>
@@ -254,7 +254,7 @@ export function ExplorationPanel({
                     <span className="flex-1" style={{ fontFamily: "'Inter', sans-serif", fontSize: "11px", fontWeight: 800, color: "#5c7284", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                       {isBundleSelected ? "Bundle Subtotal" : "Region Subtotal"}
                     </span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: hasData ? "#4d7a99" : "#9db0bc" }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: hasData ? "#4d7a99" : "#627789" }}>
                       ₱{finalRegionPhp.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>

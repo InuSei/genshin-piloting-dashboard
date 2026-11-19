@@ -210,9 +210,9 @@ function RatePair({
 }) {
   return (
     <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>₱</span>
+      <span className="text-[12px] font-bold shrink-0" style={{ color: "#627789" }}>₱</span>
       <CurrencyInput value={valuePhp} onChange={onPhp} />
-      <span className="text-[12px] font-bold shrink-0" style={{ color: "#9db0bc" }}>$</span>
+      <span className="text-[12px] font-bold shrink-0" style={{ color: "#627789" }}>$</span>
       <CurrencyInput value={valueUsd} onChange={onUsd} />
     </div>
   );
@@ -244,7 +244,7 @@ function StatCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: "#9db0bc" }}>{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: "#627789" }}>{label}</p>
         <p className="font-mono text-[18px] font-bold leading-tight" style={{ color: "#17222c" }}>{value}</p>
       </div>
     </div>
@@ -453,6 +453,26 @@ function PriceEditorForGame({
     return overrides;
   };
 
+  // Unsaved-change tracking: compare what's on screen with what was last saved/loaded.
+  // null = "adopt the next render's state as saved" (after reset/import replace the state).
+  const currentSnapshot = JSON.stringify(buildOverridesFromState());
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(currentSnapshot);
+  const isDirty = savedSnapshot !== null && currentSnapshot !== savedSnapshot;
+
+  useEffect(() => {
+    if (savedSnapshot === null) setSavedSnapshot(currentSnapshot);
+  }, [savedSnapshot, currentSnapshot]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty]);
+
+  const confirmDiscard = () =>
+    !isDirty || confirm(`You have unsaved ${game.label} price changes. Leave without saving?`);
+
   const alertSaveFailed = (error: unknown) =>
     alert(`${error instanceof Error ? error.message : "Saving prices failed"}. Nothing was changed on the live site; please try again.`);
 
@@ -465,6 +485,7 @@ function PriceEditorForGame({
       return;
     }
     game.applyOverrides(overrides);
+    setSavedSnapshot(JSON.stringify(overrides));
     flash(`Saved! ${game.label} changes are live on the dashboard and pricelist.`);
   };
 
@@ -485,6 +506,7 @@ function PriceEditorForGame({
     setCategories(game.cloneCategories());
     setRegions(game.cloneRegions());
     setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES });
+    setSavedSnapshot(null);
     flash("Reset to defaults.");
   };
 
@@ -511,6 +533,7 @@ function PriceEditorForGame({
       setCategories(game.cloneCategories());
       setRegions(game.cloneRegions());
       setPrimoRates({ ...PRIMO_RESOURCE_DEFAULT_RATES, ...parsed.primoResourceRates });
+      setSavedSnapshot(null);
       flash("Import applied.");
     };
     reader.readAsText(file);
@@ -539,6 +562,7 @@ function PriceEditorForGame({
       className="min-h-screen text-[#17222c] font-sans flex flex-col"
       style={{ background: "linear-gradient(180deg, #f2f6f9 0%, #e8eef3 100%)" }}
     >
+      <title>Price Editor — ZBPS</title>
       <header
         className="sticky top-0 z-50"
         style={{ background: "rgba(13, 20, 32, 0.94)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(77, 122, 153, 0.25)" }}
@@ -548,13 +572,21 @@ function PriceEditorForGame({
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 to="/"
+                onClick={(event) => {
+                  if (!confirmDiscard()) event.preventDefault();
+                }}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
                 style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(77,122,153,0.3)", color: "#a9c6d8" }}
               >
                 <ArrowLeft size={15} />
                 Dashboard
               </Link>
-              <GameSwitch game={game.key} onSwitch={onSwitchGame} />
+              <GameSwitch
+                game={game.key}
+                onSwitch={(next) => {
+                  if (next !== game.key && confirmDiscard()) onSwitchGame(next);
+                }}
+              />
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">
                   <h1 className="font-mono text-[16px] font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: "#eef3f6" }}>
@@ -632,9 +664,16 @@ function PriceEditorForGame({
                 );
               })}
             </nav>
-            <div className="hidden lg:flex items-center gap-1.5 shrink-0 text-[10px] font-semibold" style={{ color: "#8fa4b3" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#8fb8d1", boxShadow: "0 0 6px rgba(143,184,209,0.8)" }} />
-              Staged preview — saved on &quot;Save All&quot;
+            <div
+              className="flex items-center gap-1.5 shrink-0 text-[10px] font-semibold"
+              style={{ color: isDirty ? "#f5c26b" : "#8fa4b3" }}
+              role="status"
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: isDirty ? "#f5c26b" : "#8fb8d1", boxShadow: `0 0 6px ${isDirty ? "rgba(245,194,107,0.8)" : "rgba(143,184,209,0.8)"}` }}
+              />
+              {isDirty ? "Unsaved changes — click “Save All”" : "All changes saved"}
             </div>
           </div>
         </div>
@@ -674,7 +713,7 @@ function PriceEditorForGame({
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Primo Hunt — Resource Level Rates</h2>
-                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>
                   Flat rate per 10 pulls — when a resource level is selected it replaces the base pull pricing (Low = base pricing)
                 </p>
               </div>
@@ -682,7 +721,7 @@ function PriceEditorForGame({
 
             <div
               className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#56697a" }}
             >
               <span>Resource Level</span>
               <span className="text-right">Rate per 10 pulls</span>
@@ -725,7 +764,7 @@ function PriceEditorForGame({
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>Exploration Rates</h2>
-                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>
                   Per-1% price for each sub-area — total = missing % × rate
                 </p>
               </div>
@@ -733,7 +772,7 @@ function PriceEditorForGame({
 
             <div
               className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#56697a" }}
             >
               <span>Sub-Area</span>
               <span className="text-right">Price per 1%</span>
@@ -748,7 +787,7 @@ function PriceEditorForGame({
                   >
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
                     <span className="font-bold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc", background: "#eef3f6" }}>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest" style={{ color: "#627789", background: "#eef3f6" }}>
                       {region.tag}
                     </span>
                   </div>
@@ -785,7 +824,7 @@ function PriceEditorForGame({
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-[15px]" style={{ color: "#17222c" }}>World Exploration — Region Bundles</h2>
-                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>
+                <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>
                   Edit the full-region bundle independently from the sub-area rates
                 </p>
               </div>
@@ -793,7 +832,7 @@ function PriceEditorForGame({
 
             <div
               className="hidden md:grid items-center gap-4 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
-              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#7891a3" }}
+              style={{ gridTemplateColumns: "minmax(0,1fr) 220px", background: "#eef3f6", borderBottom: "1px solid #e2eaef", color: "#56697a" }}
             >
               <span>Region</span>
               <span className="text-right">Bundle · 100% Region</span>
@@ -809,10 +848,10 @@ function PriceEditorForGame({
                   <div className="flex items-center gap-2.5 min-w-0 md:flex-1 shrink-0">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#4d7a99,#8fb8d1)" }} />
                     <span className="font-bold text-[14px] truncate" style={{ color: "#17222c" }}>{region.name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest shrink-0" style={{ color: "#9db0bc", background: "#eef3f6" }}>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest shrink-0" style={{ color: "#627789", background: "#eef3f6" }}>
                       {region.tag}
                     </span>
-                    <span className="text-[10px] font-semibold shrink-0" style={{ color: "#9db0bc" }}>{region.subAreas.length} area{region.subAreas.length !== 1 ? "s" : ""}</span>
+                    <span className="text-[10px] font-semibold shrink-0" style={{ color: "#627789" }}>{region.subAreas.length} area{region.subAreas.length !== 1 ? "s" : ""}</span>
                   </div>
                   <div className="flex flex-col gap-1 md:flex-none md:w-[220px] md:shrink-0">
                     <RatePair
@@ -853,7 +892,7 @@ function PriceEditorForGame({
                     <div className="min-w-0">
                       <h3 className="font-bold text-[15px] truncate" style={{ color: "#17222c" }}>{service.name}</h3>
                       {service.description && (
-                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#7891a3" }}>{service.description}</p>
+                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#56697a" }}>{service.description}</p>
                       )}
                     </div>
                   </div>
@@ -869,7 +908,7 @@ function PriceEditorForGame({
                             <span className="font-mono text-[10px] font-bold" style={{ color: "#4d7a99" }}>
                               {String(gi + 1).padStart(2, "0")}
                             </span>
-                            <h4 className="text-[11px] font-extrabold uppercase tracking-widest whitespace-nowrap" style={{ color: "#9db0bc" }}>
+                            <h4 className="text-[11px] font-extrabold uppercase tracking-widest whitespace-nowrap" style={{ color: "#627789" }}>
                               {group.name}
                             </h4>
                             <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,#eef3f6,transparent)" }} />
@@ -891,7 +930,7 @@ function PriceEditorForGame({
                               >
                                 <span className="text-[13px] font-medium min-w-0" style={{ color: "#5c7284" }}>
                                   {item.name}
-                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}
+                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#627789" }}>ea</span>}
                                   {item.isQuantity && typeof item.max === "number" && (
                                     <span className="text-[10px] font-sans ml-1" style={{ color: "#c3d0d9" }}>· max {item.max}</span>
                                   )}
@@ -902,13 +941,13 @@ function PriceEditorForGame({
                                   )}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0 ml-4">
-                                  <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>₱</span>
+                                  <span className="text-[12px] font-bold" style={{ color: "#627789" }}>₱</span>
                                   <CurrencyInput
                                     className="w-20"
                                     value={price.php}
                                     onChange={(v) => updateNestedItemPrice(currentCategory.id, service.id, gi, ii, "php", v)}
                                   />
-                                  <span className="text-[12px] font-bold" style={{ color: "#9db0bc" }}>$</span>
+                                  <span className="text-[12px] font-bold" style={{ color: "#627789" }}>$</span>
                                   <CurrencyInput
                                     className="w-20"
                                     value={price.usd}
@@ -924,21 +963,21 @@ function PriceEditorForGame({
                   ) : (
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>
+                        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#627789" }}>
                           Base Rate
                         </span>
-                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#9db0bc" }}>
+                        <p className="text-[12px] font-medium mt-0.5" style={{ color: "#627789" }}>
                           Per unit (PHP)
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[13px] font-bold" style={{ color: "#9db0bc" }}>₱</span>
+                        <span className="text-[13px] font-bold" style={{ color: "#627789" }}>₱</span>
                         <CurrencyInput
                           className="w-28"
                           value={service.basePrice}
                           onChange={(v) => updateServiceBasePrice(currentCategory.id, service.id, v)}
                         />
-                        <span className="text-[11px] font-mono font-semibold" style={{ color: "#9db0bc" }}>
+                        <span className="text-[11px] font-mono font-semibold" style={{ color: "#627789" }}>
                           ≈ ${(service.basePrice / 60.75).toFixed(2)}
                         </span>
                       </div>

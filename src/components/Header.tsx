@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 export type CategoryId = string;
 
@@ -29,6 +30,41 @@ interface HeaderProps {
   onCategoryChange: (id: string) => void;
   cartCount: number;
   tabCounts?: Record<string, number>;
+  game?: "genshin" | "hsr";
+}
+
+const DASHBOARDS = [
+  { key: "genshin", label: "Genshin", to: "/" },
+  { key: "hsr", label: "Star Rail", to: "/hsr" },
+] as const;
+
+function DashboardSwitch({ game, className = "flex" }: { game: "genshin" | "hsr"; className?: string }) {
+  return (
+    <nav
+      aria-label="Switch game"
+      className={`${className} items-center p-0.5 rounded-full shrink-0`}
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(77, 122, 153, 0.3)" }}
+    >
+      {DASHBOARDS.map((d) => {
+        const isActive = d.key === game;
+        return (
+          <Link
+            key={d.key}
+            to={d.to}
+            aria-current={isActive ? "page" : undefined}
+            className="px-2.5 min-h-6 inline-flex items-center rounded-full whitespace-nowrap text-[11px] transition-all"
+            style={
+              isActive
+                ? { background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", fontWeight: 700 }
+                : { color: "#a9bccb", fontWeight: 600 }
+            }
+          >
+            {d.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }
 
 function TabCount({ count, isActive }: { count?: number; isActive: boolean }) {
@@ -49,7 +85,7 @@ function TabCount({ count, isActive }: { count?: number; isActive: boolean }) {
   );
 }
 
-export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, cartCount, tabCounts }: HeaderProps) {
+export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, cartCount, tabCounts, game }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -90,6 +126,7 @@ export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, 
               PILOTING SERVICES
             </p>
           </div>
+          {game && <DashboardSwitch game={game} className="hidden sm:flex" />}
         </div>
 
         {/* Middle: Desktop Category Tabs */}
@@ -187,6 +224,7 @@ export function Header({ tabs = GENSHIN_TABS, activeCategory, onCategoryChange, 
           <p className="text-[10px] font-bold uppercase tracking-wider mb-1 mt-2 px-2" style={{ color: "#7891a3" }}>
             Select Service Category
           </p>
+          {game && <DashboardSwitch game={game} className="flex sm:hidden self-start mb-2 ml-2" />}
           {tabs.map((tab) => {
             const isActive = activeCategory === tab.id;
             return (

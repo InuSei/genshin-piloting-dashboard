@@ -1,7 +1,8 @@
 import { useState, useCallback, useSyncExternalStore } from "react";
 import { Header, HSR_TABS } from "../components/Header";
 import { ServiceList } from "../components/ServiceList";
-import { ReceiptPanel } from "../components/ReceiptPanel";
+import { ReceiptPanel, MobileTotalBar } from "../components/ReceiptPanel";
+import { useStoredState } from "../useStoredState";
 import { HSR_CATEGORIES, buildHsrReceiptItems } from "../data/hsrServices";
 import type { ServiceSelection } from "../data/services";
 import {
@@ -12,9 +13,9 @@ import {
 export default function HsrApp() {
   useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
   const [activeCategory, setActiveCategory] = useState<string>(HSR_TABS[0].id);
-  const [selections, setSelections] = useState<ServiceSelection>({});
-  const [clientName, setClientName] = useState("");
-  const [isFirstTimeClient, setIsFirstTimeClient] = useState<boolean>(false);
+  const [selections, setSelections] = useStoredState<ServiceSelection>("zb-hsr-selections", {});
+  const [clientName, setClientName] = useStoredState("zb-hsr-client", "");
+  const [isFirstTimeClient, setIsFirstTimeClient] = useStoredState<boolean>("zb-hsr-first-time", false);
 
   const handleToggleCheckbox = useCallback((serviceId: string) => {
     setSelections((prev) => ({
@@ -40,14 +41,23 @@ export default function HsrApp() {
   const receiptItems = buildHsrReceiptItems(selections);
   const cartCount = receiptItems.length;
 
+  const tabCounts: Record<string, number> = {};
+  for (const category of HSR_CATEGORIES) {
+    const items = category.services.flatMap((s): { id: string }[] => s.groups?.flatMap((g) => g.items) ?? [s]);
+    tabCounts[category.id] = items.filter((item) => (selections[item.id] ?? 0) > 0).length;
+  }
+
   return (
     <div className="flex flex-col w-full min-h-screen lg:h-screen lg:overflow-hidden">
+      <title>Star Rail Calculator — ZBPS</title>
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
           tabs={HSR_TABS}
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           cartCount={cartCount}
+          tabCounts={tabCounts}
+          game="hsr"
         />
       </div>
 
@@ -75,7 +85,7 @@ export default function HsrApp() {
           />
         </main>
 
-        <div className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col">
+        <div id="receipt" className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col pb-14 lg:pb-0">
           <ReceiptPanel
             clientName={clientName}
             onClientNameChange={setClientName}
@@ -89,6 +99,7 @@ export default function HsrApp() {
           />
         </div>
       </div>
+      <MobileTotalBar items={receiptItems} isFirstTimeClient={isFirstTimeClient} />
     </div>
   );
 }

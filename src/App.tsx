@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
+import { useStoredState } from "./useStoredState";
 import { Header, GENSHIN_TABS } from "./components/Header";
 import { ServiceList } from "./components/ServiceList";
 import { ExplorationPanel } from "./components/ExplorationPanel";
-import { ReceiptPanel } from "./components/ReceiptPanel";
+import { ReceiptPanel, MobileTotalBar } from "./components/ReceiptPanel";
 import {
   CATEGORIES,
   buildReceiptItems,
@@ -23,26 +24,6 @@ import {
   getPriceRevision,
   subscribeToPriceOverrides,
 } from "./data/priceStorage";
-
-// Keeps the in-progress order in this browser so a reload doesn't wipe it.
-function useStoredState<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw === null ? initial : (JSON.parse(raw) as T);
-    } catch {
-      return initial;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // storage full or blocked: the order still works, it just won't survive a reload
-    }
-  }, [key, value]);
-  return [value, setValue];
-}
 
 export default function App() {
   useSyncExternalStore(subscribeToPriceOverrides, getPriceRevision, getPriceRevision);
@@ -176,6 +157,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col w-full min-h-screen lg:h-screen lg:overflow-hidden">
+      <title>Genshin Calculator — ZBPS</title>
       <div className="shrink-0 relative z-50 sticky top-0 shadow-sm lg:shadow-none">
         <Header
           tabs={GENSHIN_TABS}
@@ -183,6 +165,7 @@ export default function App() {
           onCategoryChange={setActiveCategory}
           cartCount={cartCount}
           tabCounts={tabCounts}
+          game="genshin"
         />
       </div>
 
@@ -225,7 +208,7 @@ export default function App() {
           )}
         </main>
 
-        <div className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col">
+        <div id="receipt" className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white lg:h-full lg:overflow-hidden flex flex-col pb-14 lg:pb-0">
           <ReceiptPanel
             clientName={clientName}
             onClientNameChange={setClientName}
@@ -238,6 +221,7 @@ export default function App() {
           />
         </div>
       </div>
+      <MobileTotalBar items={receiptItems} isFirstTimeClient={isFirstTimeClient} />
     </div>
   );
 }

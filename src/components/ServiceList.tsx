@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   isActCoveredByBundle,
   PRIMO_PULL_UNITS,
@@ -39,6 +39,24 @@ function calcPrice(
   if (type === "checkbox") return value > 0 ? basePrice : 0;
   if (type === "nested-list") return 0;
   return basePrice * value;
+}
+
+const FOCUS_RING = "rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4d7a99]";
+
+// Makes a clickable row behave like a real checkbox for keyboard and screen-reader users.
+function checkboxA11y(checked: boolean, onToggle: () => void, disabled = false) {
+  return {
+    role: "checkbox" as const,
+    "aria-checked": checked,
+    "aria-disabled": disabled || undefined,
+    tabIndex: disabled ? -1 : 0,
+    onKeyDown: (e: KeyboardEvent) => {
+      if (!disabled && (e.key === " " || e.key === "Enter")) {
+        e.preventDefault();
+        onToggle();
+      }
+    },
+  };
 }
 
 // Keeps a service if its name matches; otherwise keeps only the groups/items that match.
@@ -199,7 +217,7 @@ function CheckboxService({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 cursor-pointer" onClick={onToggle}>
+    <div className={`flex items-center gap-4 cursor-pointer ${FOCUS_RING}`} onClick={onToggle} {...checkboxA11y(isChecked, onToggle)}>
       <div
         className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-300"
         style={
@@ -250,14 +268,14 @@ function CheckboxService({
             </span>
           )}
         </div>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", color: "#7891a3", marginTop: "3px", lineHeight: 1.4 }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", color: "#56697a", marginTop: "3px", lineHeight: 1.4 }}>
           {service.description}
         </p>
       </div>
 
       <div
         className="shrink-0 text-right"
-        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: isChecked ? "#4d7a99" : "#9db0bc" }}
+        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: isChecked ? "#4d7a99" : "#627789" }}
       >
         {formatPHP(service.basePrice)}
       </div>
@@ -297,7 +315,7 @@ function QuantityService({
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: "15px",
             fontWeight: 800,
-            color: isActive ? "#17222c" : "#7891a3",
+            color: isActive ? "#17222c" : "#56697a",
           }}
         >
           {value}
@@ -334,16 +352,16 @@ function QuantityService({
             </span>
           )}
         </div>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", color: "#7891a3", marginTop: "3px", lineHeight: 1.4 }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", color: "#56697a", marginTop: "3px", lineHeight: 1.4 }}>
           {service.description}
         </p>
       </div>
 
       <div className="shrink-0 text-right">
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: isActive ? "#4d7a99" : "#9db0bc" }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "16px", fontWeight: 800, color: isActive ? "#4d7a99" : "#627789" }}>
           {formatPHP(price)}
         </div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", fontWeight: 600, color: "#7891a3", marginTop: "2px" }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", fontWeight: 600, color: "#56697a", marginTop: "2px" }}>
           {formatPHP(service.basePrice)} ea.
         </div>
       </div>
@@ -395,13 +413,14 @@ function NestedListService({
 
           return (
             <div key={group.name} className="flex flex-col gap-3">
-              <h4 className="text-[12px] font-extrabold tracking-widest uppercase" style={{ color: "#7891a3" }}>
+              <h4 className="text-[12px] font-extrabold tracking-widest uppercase" style={{ color: "#56697a" }}>
                 {group.name}
               </h4>
 
               {bundleItem && (
                 <div
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-all duration-200 hover:-translate-y-px"
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-all duration-200 hover:-translate-y-px ${FOCUS_RING}`}
+                  {...checkboxA11y(isBundleSelected, () => onToggle(bundleItem.id))}
                   style={{
                     background: isBundleSelected
                       ? "linear-gradient(135deg, #4d7a99, #8fb8d1)"
@@ -478,7 +497,8 @@ function NestedListService({
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-4 transition-opacity ${isInteractive ? "cursor-pointer group/item" : ""}`}
+                      className={`flex items-center gap-4 transition-opacity ${isInteractive ? `cursor-pointer group/item ${FOCUS_RING}` : ""}`}
+                      {...(item.isQuantity ? {} : checkboxA11y(isChecked || isLocked, () => onToggle(item.id), isLocked))}
                       style={{ opacity: isLocked ? 0.45 : 1 }}
                       onClick={() => isInteractive && onToggle(item.id)}
                     >
@@ -518,7 +538,7 @@ function NestedListService({
                               fontFamily: "'JetBrains Mono', monospace",
                               fontSize: "14px",
                               fontWeight: 700,
-                              color: isChecked ? "#17222c" : "#7891a3",
+                              color: isChecked ? "#17222c" : "#56697a",
                               background: "transparent",
                               border: "none",
                               outline: "none",
@@ -556,7 +576,7 @@ function NestedListService({
                       </span>
                       <span
                         className="text-[14px] font-mono font-bold transition-colors"
-                        style={{ color: isChecked ? "#4d7a99" : "#9db0bc" }}
+                        style={{ color: isChecked ? "#4d7a99" : "#627789" }}
                       >
                         {isLocked
                           ? "—"
@@ -568,10 +588,10 @@ function NestedListService({
               </div>
               {Array.isArray(group?.items) && group.items.some((i: any) => String(i?.id || "").startsWith("hunt_primo_")) && (
                 <div className="flex flex-col gap-2.5 px-4 py-3 border-t" style={{ borderColor: "#e2eaef" }}>
-                  <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#7891a3" }}>
+                  <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#56697a" }}>
                     Resource Level
                   </div>
-                  <div className="text-[11px] font-medium" style={{ color: "#9db0bc" }}>
+                  <div className="text-[11px] font-medium" style={{ color: "#627789" }}>
                     Mid / High replace the pull prices above with a flat rate per 10 pulls.
                   </div>
                   {[

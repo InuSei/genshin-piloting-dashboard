@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { PriceEditor } from './pages/PriceEditor.tsx'
 import App from './App.tsx'
 import HsrApp from './pages/HsrApp.tsx'
+import NotFound from './pages/NotFound.tsx'
 import { GenshinPricelist, HsrPricelist } from './pages/ClientPricelist.tsx'
 import { fetchOverrides } from './data/priceStorage'
 import './styles/index.css'
@@ -23,6 +24,7 @@ fetchOverrides().then(() => createRoot(document.getElementById('root')!).render(
         <Route path="/pricelist" element={<Navigate to="/pricelist/genshin" replace />} />
 
         <Route path="/admin/prices" element={<PriceEditor />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
 import { CATEGORIES, type PriceValue, type Category } from "../data/services";
 import { HSR_CATEGORIES } from "../data/hsrServices";
 import { EXPLORATION_REGIONS, getRegionBundlePrice } from "../data/explorationRegions";
@@ -98,6 +99,18 @@ function PricelistPage({ game }: { game: PricelistGame }) {
       className="min-h-screen text-[#17222c] font-sans selection:bg-[#4d7a99]/20 flex flex-col"
       style={{ background: "linear-gradient(180deg, #f2f6f9 0%, #e8eef3 100%)" }}
     >
+      <title>{`${game.gameName} Pricelist — Zapolyarny Bureau`}</title>
+
+      <a
+        href="https://discord.gg/eqwajc5pea"
+        target="_blank"
+        rel="noreferrer"
+        className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 px-5 py-3 rounded-full text-[14px] font-bold transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4d7a99]"
+        style={{ background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", boxShadow: "0 8px 24px rgba(13, 20, 32, 0.35)" }}
+      >
+        <MessageCircle size={18} aria-hidden="true" />
+        Order on Discord
+      </a>
 
       <header
         className="sticky top-0 z-50 flex flex-col"
@@ -175,9 +188,9 @@ function PricelistPage({ game }: { game: PricelistGame }) {
 
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: "1px solid #e2eaef" }}>
                 <div className="hidden md:flex items-center justify-between p-4" style={{ background: "#eef3f6", borderBottom: "1px solid #e2eaef" }}>
-                  <div className="w-1/2 font-bold text-[12px] uppercase tracking-widest" style={{ color: "#7891a3" }}>Region</div>
+                  <div className="w-1/2 font-bold text-[12px] uppercase tracking-widest" style={{ color: "#56697a" }}>Region</div>
                   <div className="w-1/2 flex justify-end pr-4">
-                    <div className="font-bold text-[12px] uppercase tracking-widest text-right w-36" style={{ color: "#7891a3" }}>100% Region Bundle</div>
+                    <div className="font-bold text-[12px] uppercase tracking-widest text-right w-36" style={{ color: "#56697a" }}>100% Region Bundle</div>
                   </div>
                 </div>
                 <div className="flex flex-col">
@@ -186,7 +199,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                       <div className="flex items-center justify-between gap-3 px-4 py-2.5" style={{ background: "#f7fafc", borderBottom: "1px solid #e2eaef" }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-extrabold text-[13px] tracking-wide" style={{ color: "#3c4d59" }}>{region.name}</span>
-                          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0" style={{ color: "#9db0bc", background: "#eef3f6" }}>{region.tag}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0" style={{ color: "#627789", background: "#eef3f6" }}>{region.tag}</span>
                         </div>
                         <span className="text-[15px] font-mono font-bold shrink-0" style={{ color: "#4d7a99" }}>{formatPrice(region.bundle)}</span>
                       </div>
@@ -201,7 +214,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                           </div>
                           <div className="flex justify-between md:justify-end md:w-1/2 md:gap-12 md:pr-4">
                             <div className="flex flex-col md:items-end w-24">
-                              <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#9db0bc" }}>Per 1%</span>
+                              <span className="text-[10px] uppercase tracking-widest font-bold md:hidden mb-0.5" style={{ color: "#627789" }}>Per 1%</span>
                               <span className="text-[12px] font-mono font-bold" style={{ color: "#4d7a99" }}>{formatPrice(area.partial)}</span>
                             </div>
                           </div>
@@ -231,7 +244,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                     <div className="columns-1 md:columns-2 gap-x-12">
                       {service.groups.map(group => (
                         <div key={group.name} className="flex flex-col gap-2.5 mb-8 break-inside-avoid">
-                          <h4 className="text-[11px] font-extrabold uppercase tracking-widest border-b pb-1.5" style={{ color: "#9db0bc", borderColor: "#eef3f6" }}>
+                          <h4 className="text-[11px] font-extrabold uppercase tracking-widest border-b pb-1.5" style={{ color: "#627789", borderColor: "#eef3f6" }}>
                             {group.name}
                           </h4>
                           <div className="flex flex-col gap-1.5 pt-1">
@@ -251,7 +264,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                                 </span>
                                 <span className="text-[13px] font-mono font-bold shrink-0" style={{ color: "#4d7a99" }}>
                                   {formatPrice(item.price)}
-                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#9db0bc" }}>ea</span>}
+                                  {item.isQuantity && <span className="text-[10px] font-sans ml-1" style={{ color: "#627789" }}>ea</span>}
                                 </span>
                               </div>
                             ))}
@@ -261,13 +274,13 @@ function PricelistPage({ game }: { game: PricelistGame }) {
                     </div>
                   ) : (
                     <div className="flex justify-between items-center py-2">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: "#9db0bc" }}>Base Rate</span>
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: "#627789" }}>Base Rate</span>
                       <div className="text-right leading-none flex items-center gap-2">
                         <span className="text-[18px] font-mono font-bold" style={{ color: "#4d7a99" }}>
                           {formatPrice(service.basePrice)}
                         </span>
                         {service.type === "quantity" && (
-                           <span className="text-[12px] font-sans font-medium mt-0.5" style={{ color: "#9db0bc" }}>per unit</span>
+                           <span className="text-[12px] font-sans font-medium mt-0.5" style={{ color: "#627789" }}>per unit</span>
                         )}
                       </div>
                     </div>
@@ -280,7 +293,7 @@ function PricelistPage({ game }: { game: PricelistGame }) {
       </main>
 
       <footer style={{ background: "#0d1420", borderTop: "1px solid rgba(77,122,153,0.2)" }}>
-        <div className="max-w-4xl mx-auto w-full px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-4xl mx-auto w-full px-6 pt-8 pb-24 md:pb-8 flex flex-col md:flex-row items-center justify-between gap-6">
 
           <span className="font-mono text-[13px] font-bold tracking-[0.15em] uppercase" style={{ color: "#eef3f6" }}>
             Zapolyarny Bureau
