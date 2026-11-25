@@ -15,6 +15,10 @@ import { LIMITS, normalizeCatalog, type CatalogGame } from "../src/data/catalog.
 const REDIS_URL = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 
+// Preview/staging deployments share the Redis database with the live site, so they
+// keep their own copy under "preview:"; saving on staging never touches live data.
+const KEY_PREFIX = process.env.VERCEL_ENV === "production" ? "" : "preview:";
+
 const HISTORY_LENGTH = 10;
 // Stored in history when there was no catalog yet, so undo can return to "none".
 const NO_CATALOG = "null";
@@ -35,7 +39,8 @@ const parse = (raw: string | null) => (raw ? JSON.parse(raw) : null);
 export async function GET(): Promise<Response> {
   try {
     const [genshin, hsr, catalogGenshin, catalogHsr] = (await redis([
-      "MGET", "prices:genshin", "prices:hsr", "catalog:genshin", "catalog:hsr",
+      "MGET",
+      ...["prices:genshin", "prices:hsr", "catalog:genshin", "catalog:hsr"].map((key) => KEY_PREFIX + key),
     ])) as (string | null)[];
     return Response.json(
       {
@@ -68,7 +73,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Unknown game" }, { status: 400 });
   }
   const game: CatalogGame = body.game;
-  const key = `catalog:${game}`;
+  const key = `${KEY_PREFIX}catalog:${game}`;
   const historyKey = `${key}:history`;
 
   try {
