@@ -403,13 +403,10 @@ function PriceEditorForGame({
       style={{ background: "linear-gradient(180deg, #f2f6f9 0%, #e8eef3 100%)" }}
     >
       <title>Price Editor — ZBPS</title>
-      <header
-        className="sticky top-0 z-50"
-        style={{ background: "rgba(13, 20, 32, 0.94)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(77, 122, 153, 0.25)" }}
-      >
-        <div className="max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 pb-4 flex flex-col gap-4">
+      <header style={{ background: "rgba(13, 20, 32, 0.94)" }}>
+        <div className="max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 pb-3">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-wrap">
               <Link
                 to="/"
                 onClick={(event) => {
@@ -445,7 +442,7 @@ function PriceEditorForGame({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleExport}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:bg-white/5"
@@ -478,20 +475,20 @@ function PriceEditorForGame({
                 <RotateCcw size={14} />
                 Reset
               </button>
-              <button
-                onClick={handleSaveAll}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold transition-transform hover:-translate-y-px"
-                style={{ background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", boxShadow: "0 4px 14px rgba(77,122,153,0.35)" }}
-              >
-                <Save size={14} />
-                Save All
-              </button>
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* only tabs + save stay pinned so the editor keeps most of the screen */}
+      <div
+        className="sticky top-0 z-50"
+        style={{ background: "rgba(13, 20, 32, 0.94)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(77, 122, 153, 0.25)" }}
+      >
+        <div className="max-w-5xl mx-auto w-full px-4 md:px-6 pt-1 pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <nav
-              className="flex items-center p-1 rounded-xl overflow-x-auto w-full"
+              className="flex items-center p-1 rounded-xl overflow-x-auto flex-1 min-w-0"
               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(77,122,153,0.22)", scrollbarWidth: "none" }}
             >
               {tabs.map((tab) => {
@@ -500,7 +497,7 @@ function PriceEditorForGame({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className="flex items-center justify-center px-4 py-2 rounded-lg transition-all whitespace-nowrap shrink-0 text-[13px]"
+                    className="flex items-center justify-center px-3 py-2 rounded-lg transition-all whitespace-nowrap shrink-0 text-[13px]"
                     style={
                       isActive
                         ? { background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", fontWeight: 700, boxShadow: "0 2px 8px rgba(77,122,153,0.3)" }
@@ -521,11 +518,19 @@ function PriceEditorForGame({
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: isDirty ? "#f5c26b" : "#8fb8d1", boxShadow: `0 0 6px ${isDirty ? "rgba(245,194,107,0.8)" : "rgba(143,184,209,0.8)"}` }}
               />
-              {isDirty ? "Unsaved changes — click “Save All”" : "All changes saved"}
+              <span className="sr-only sm:not-sr-only">{isDirty ? "Unsaved changes" : "All changes saved"}</span>
             </div>
+            <button
+              onClick={handleSaveAll}
+              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold transition-transform hover:-translate-y-px"
+              style={{ background: "linear-gradient(135deg, #4d7a99, #8fb8d1)", color: "#0d1420", boxShadow: "0 4px 14px rgba(77,122,153,0.35)" }}
+            >
+              <Save size={14} />
+              Save All
+            </button>
           </div>
         </div>
-      </header>
+      </div>
 
       {savedMessage && (
         <div key={savedMessage} className="relative z-10 max-w-5xl mx-auto w-full px-4 md:px-6 pt-4 animate-fade-up">
